@@ -1,0 +1,201 @@
+// Prisma schema for League Intel
+// Database: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User accounts (NextAuth compatible)
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  leagues       League[]
+  accounts      Account[]
+  sessions      Session[]
+
+  @@map("users")
+}
+
+// NextAuth models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// League tracking
+model League {
+  id               String   @id @default(cuid())
+  sleeperLeagueId  String   @unique
+  name             String
+  season           Int
+  platform         Platform @default(SLEEPER)
+  ownerUserId      String
+  lastSyncAt       DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  owner                  User                     @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  teams                  LeagueTeam[]
+  waiverTransactions     WaiverTransaction[]
+
+  @@index([ownerUserId])
+  @@map("leagues")
+}
+
+enum Platform {
+  SLEEPER
+  MFL
+  ESPN
+}
+
+// Teams within a league
+model LeagueTeam {
+  id                  String          @id @default(cuid())
+  leagueId            String
+  sleeperOwnerId      String          // Sleeper's user_id for this team owner
+  sleeperRosterId     Int             // Sleeper's roster_id
+  displayName         String
+  teamName            String?         // Optional custom team name
+  lastActivityAt      DateTime?
+  strategyLabel       StrategyLabel?
+  strategyConfidence  Float?          // 0.0 to 1.0
+  notes               String?         @db.Text
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  // Relations
+  league                    League                  @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  waiverTransactions        WaiverTransaction[]
+  waiverSummary             TeamWaiverSummary?
+  positionalProfile         TeamPositionalProfile?
+
+  @@unique([leagueId, sleeperRosterId])
+  @@index([leagueId])
+  @@map("league_teams")
+}
+
+enum StrategyLabel {
+  REBUILD
+  CONTEND
+  TINKER
+  INACTIVE
+}
+
+// Individual waiver/transaction records
+model WaiverTransaction {
+  id              String    @id @default(cuid())
+  leagueId        String
+  teamId          String
+  playerId        String    // Sleeper player ID
+  playerName      String
+  playerPosition  String    // QB, RB, WR, TE, etc.
+  playerAge       Int?
+  transactionType TransactionType
+  transactionDate DateTime
+  week            Int
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  league League     @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  team   LeagueTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([leagueId, week])
+  @@index([teamId, transactionDate])
+  @@map("waiver_transactions")
+}
+
+enum TransactionType {
+  ADD
+  DROP
+}
+
+// Aggregated waiver activity summary per team
+model TeamWaiverSummary {
+  id                  String   @id @default(cuid())
+  leagueId            String
+  teamId              String   @unique
+  last30dAdds         Int      @default(0)
+  last30dDrops        Int      @default(0)
+  addsByPosition      Json     // { "QB": 2, "RB": 4, "WR": 3, "TE": 1 }
+  dropsByPosition     Json     // Same structure
+  avgPlayerAgeAdded   Float?
+  avgPlayerAgeDropped Float?
+  activityTrend       ActivityTrend?
+  calculatedAt        DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  team LeagueTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([leagueId])
+  @@map("team_waiver_summary")
+}
+
+enum ActivityTrend {
+  RISING
+  FALLING
+  STABLE
+  INACTIVE
+}
+
+// Positional needs and roster composition
+model TeamPositionalProfile {
+  id               String   @id @default(cuid())
+  leagueId         String
+  teamId           String   @unique
+  positionalNeeds  Json     // { "QB": "STABLE", "RB": "THIN", "WR": "DESPERATE", "TE": "HOARDING" }
+  rosterCounts     Json     // { "QB": { "starters": 2, "bench": 1 }, "RB": { ... } }
+  calculatedAt     DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  team LeagueTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([leagueId])
+  @@map("team_positional_profile")
+}
