@@ -5,8 +5,6 @@
  * Shows team cards, intel feed, and summary stats
  */
 
-import { redirect } from 'next/navigation'
-import { getCurrentUserId, verifyLeagueOwnership } from '@/lib/utils/auth-helpers'
 import { TeamCard } from '@/components/TeamCard'
 import { IntelFeed } from '@/components/IntelFeed'
 import { RefreshCw, TrendingUp } from 'lucide-react'
@@ -21,7 +19,7 @@ interface PageProps {
 
 async function getLeagueIntel(leagueId: string): Promise<LeagueIntelResponse | null> {
   try {
-    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000'
     const response = await fetch(`${baseUrl}/api/leagues/${leagueId}/intel`, {
       cache: 'no-store',
     })
@@ -34,16 +32,6 @@ async function getLeagueIntel(leagueId: string): Promise<LeagueIntelResponse | n
 }
 
 export default async function LeagueIntelPage({ params }: PageProps) {
-  const userId = await getCurrentUserId()
-
-  if (!userId) {
-    redirect('/auth/signin')
-  }
-
-  const hasAccess = await verifyLeagueOwnership(params.leagueId, userId)
-  if (!hasAccess) {
-    redirect('/dashboard')
-  }
 
   const intel = await getLeagueIntel(params.leagueId)
 

@@ -1,27 +1,18 @@
 /**
  * Dashboard Page
  *
- * Shows all connected leagues for the authenticated user
+ * Shows all connected leagues
  * Allows adding new leagues
  */
 
-import { redirect } from 'next/navigation'
-import { getCurrentUserId } from '@/lib/utils/auth-helpers'
 import { prisma } from '@/lib/db'
 import { LeagueCard } from '@/components/LeagueCard'
 import { Plus } from 'lucide-react'
 import Link from 'next/link'
 
 export default async function DashboardPage() {
-  const userId = await getCurrentUserId()
-
-  if (!userId) {
-    redirect('/auth/signin')
-  }
-
-  // Fetch user's leagues
+  // Fetch all leagues (no authentication required)
   const leagues = await prisma.league.findMany({
-    where: { ownerUserId: userId },
     select: {
       id: true,
       name: true,

@@ -7,7 +7,6 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUserId, verifyLeagueOwnership } from '@/lib/utils/auth-helpers'
 import { generateTradeIdeas } from '@/lib/analysis/trade-ideas'
 
 interface RouteContext {
@@ -18,11 +17,6 @@ interface RouteContext {
 
 export async function GET(req: NextRequest, { params }: RouteContext) {
   try {
-    const userId = await getCurrentUserId()
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const { leagueId } = params
     const { searchParams } = new URL(req.url)
     const teamId = searchParams.get('teamId')
@@ -32,12 +26,6 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
         { error: 'teamId query parameter is required' },
         { status: 400 }
       )
-    }
-
-    // Verify league ownership
-    const hasAccess = await verifyLeagueOwnership(leagueId, userId)
-    if (!hasAccess) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     // Generate trade ideas

@@ -10,7 +10,6 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { getCurrentUserId, verifyLeagueOwnership } from '@/lib/utils/auth-helpers'
 import {
   getLeagueTransactionsRange,
   getNFLState,
@@ -26,18 +25,7 @@ interface RouteContext {
 
 export async function POST(req: NextRequest, { params }: RouteContext) {
   try {
-    const userId = await getCurrentUserId()
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const { leagueId } = params
-
-    // Verify league ownership
-    const hasAccess = await verifyLeagueOwnership(leagueId, userId)
-    if (!hasAccess) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
 
     // Get league
     const league = await prisma.league.findUnique({

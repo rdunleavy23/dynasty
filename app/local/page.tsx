@@ -30,9 +30,9 @@ export default function LocalAnalysisPage() {
           <div className="w-16 h-16 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mx-auto mb-4">
             <User className="w-8 h-8" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Local League Analysis</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">League Intel</h1>
           <p className="text-gray-600">
-            Enter a Sleeper username to view their leagues
+            Enter your Sleeper username to view your leagues
           </p>
         </div>
 
@@ -80,17 +80,6 @@ export default function LocalAnalysisPage() {
           </button>
         </form>
 
-        <div className="mt-6 pt-6 border-t border-gray-200">
-          <p className="text-xs text-gray-500 text-center">
-            Or go directly to a league:{' '}
-            <a
-              href="/local/league/1312497096116404224"
-              className="text-blue-600 hover:underline"
-            >
-              /local/league/1312497096116404224
-            </a>
-          </p>
-        </div>
       </div>
     </div>
   )

@@ -12,7 +12,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
-import { getCurrentUserId } from '@/lib/utils/auth-helpers'
 import { getLeague, getLeagueUsers, getLeagueRosters } from '@/lib/sleeper'
 
 const createLeagueSchema = z.object({
@@ -21,12 +20,6 @@ const createLeagueSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    // Check authentication
-    const userId = await getCurrentUserId()
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     // Parse and validate request body
     const body = await req.json()
     const { sleeperLeagueId } = createLeagueSchema.parse(body)
@@ -50,14 +43,14 @@ export async function POST(req: NextRequest) {
       getLeagueRosters(sleeperLeagueId),
     ])
 
-    // Create league
+    // Create league (no ownerUserId required)
     const league = await prisma.league.create({
       data: {
         sleeperLeagueId,
         name: sleeperLeague.name,
         season: parseInt(sleeperLeague.season),
         platform: 'SLEEPER',
-        ownerUserId: userId,
+        ownerUserId: 'anonymous', // Placeholder since schema requires it
       },
     })
 
@@ -133,17 +126,11 @@ export async function POST(req: NextRequest) {
 /**
  * GET /api/leagues
  *
- * Returns all leagues for the authenticated user
+ * Returns all leagues
  */
 export async function GET() {
   try {
-    const userId = await getCurrentUserId()
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const leagues = await prisma.league.findMany({
-      where: { ownerUserId: userId },
       select: {
         id: true,
         name: true,

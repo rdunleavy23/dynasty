@@ -19,7 +19,7 @@ export default function Home() {
               <h1 className="text-2xl font-bold text-gray-900">League Intel</h1>
             </div>
             <Link
-              href="/dashboard"
+              href="/local"
               className="px-4 py-2 rounded-md bg-primary-600 text-white font-medium hover:bg-primary-700 transition-colors"
             >
               Get Started
@@ -40,10 +40,10 @@ export default function Home() {
             <span className="font-semibold text-gray-900">they&apos;ll actually accept</span>.
           </p>
           <Link
-            href="/dashboard"
+            href="/local"
             className="inline-block px-8 py-4 rounded-lg bg-primary-600 text-white text-lg font-semibold hover:bg-primary-700 transition-colors shadow-lg hover:shadow-xl"
           >
-            Connect Your Sleeper League
+            Enter Your Sleeper Username
           </Link>
           <p className="text-sm text-gray-500 mt-4">
             No credit card required • Free for dynasty leagues
@@ -292,10 +292,10 @@ export default function Home() {
             Connect your league to see real insights tailored to your team&apos;s behavior and league context.
           </p>
           <Link
-            href="/dashboard"
+            href="/local"
             className="inline-block px-8 py-4 rounded-lg bg-primary-600 text-white text-lg font-semibold hover:bg-primary-700 transition-colors shadow-lg hover:shadow-xl"
           >
-            Connect Your League Now
+            Enter Your Sleeper Username
           </Link>
         </div>
       </section>
@@ -357,10 +357,10 @@ export default function Home() {
           Join dynasty managers who are using League Intel to win more trades.
         </p>
         <Link
-          href="/dashboard"
+          href="/local"
           className="inline-block px-8 py-4 rounded-lg bg-primary-600 text-white text-lg font-semibold hover:bg-primary-700 transition-colors shadow-lg hover:shadow-xl"
         >
-          Get Started Free
+          Enter Your Sleeper Username
         </Link>
       </section>
 
