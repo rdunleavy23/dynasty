@@ -98,9 +98,26 @@ function getDemoLeagueIntel(leagueId: string): LeagueIntelResponse {
 }
 
 async function getLeagueIntelDirect(leagueId: string): Promise<LeagueIntelResponse | null> {
-  // If no database URL, return demo data for proof of concept
+  // If no database URL, try fetching from Sleeper API, otherwise return demo data
   if (!process.env.DATABASE_URL) {
-    return getDemoLeagueIntel(leagueId)
+    // Try to fetch league info from Sleeper API
+    try {
+      const { getLeague } = await import('@/lib/sleeper')
+      const sleeperLeague = await getLeague(leagueId)
+      // If we can fetch from Sleeper, return demo data with real league name
+      return {
+        ...getDemoLeagueIntel(leagueId),
+        league: {
+          id: 'sleeper-' + leagueId,
+          name: sleeperLeague.name,
+          season: parseInt(sleeperLeague.season),
+          lastSyncAt: null,
+        },
+      }
+    } catch {
+      // If Sleeper API fails, return demo data
+      return getDemoLeagueIntel(leagueId)
+    }
   }
   
   try {
@@ -128,8 +145,25 @@ async function getLeagueIntelDirect(leagueId: string): Promise<LeagueIntelRespon
       new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Prisma query timeout after 10s')), 10000))
     ]) as Awaited<typeof leagueQuery>
     
+    // If not in database, try fetching from Sleeper API to show basic info
     if (!league) {
-      return null
+      try {
+        const { getLeague } = await import('@/lib/sleeper')
+        const sleeperLeague = await getLeague(leagueId)
+        // Return demo data with real league name from Sleeper
+        return {
+          ...getDemoLeagueIntel(leagueId),
+          league: {
+            id: 'sleeper-' + leagueId,
+            name: sleeperLeague.name,
+            season: parseInt(sleeperLeague.season),
+            lastSyncAt: null,
+          },
+        }
+      } catch {
+        // Sleeper API also failed, return null
+        return null
+      }
     }
 
     // Build team cards
