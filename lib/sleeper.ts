@@ -16,6 +16,27 @@ import type {
 
 const SLEEPER_API_BASE = 'https://api.sleeper.app/v1'
 
+// #region agent log
+async function logDebug(location: string, message: string, data: any, hypothesisId = 'SLEEPER') {
+  try {
+    const payload = {
+      location,
+      message,
+      data,
+      timestamp: Date.now(),
+      sessionId: 'debug-session',
+      runId: 'run1',
+      hypothesisId,
+    }
+    await fetch('http://127.0.0.1:7243/ingest/65e35794-301a-4f72-96d1-008e0ed53161', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).catch(() => {})
+  } catch {}
+}
+// #endregion
+
 /**
  * Generic fetch wrapper with retry logic
  */
@@ -128,15 +149,36 @@ export async function getUserByUsername(username: string): Promise<SleeperUser |
     // URL encode the username to handle special characters
     const encodedUsername = encodeURIComponent(username)
     const url = `${SLEEPER_API_BASE}/user/${encodedUsername}`
-    return await fetchWithRetry<SleeperUser>(url)
+    const user = await fetchWithRetry<SleeperUser>(url)
+    // #region agent log
+    await logDebug('lib/sleeper.ts:getUserByUsername', 'user fetched', {
+      username,
+      encodedUsername,
+      userId: user?.user_id,
+    })
+    // #endregion
+    return user
   } catch (error) {
     // Check for 404 or any error that indicates user not found
     if (error instanceof Error) {
       if (error.message.includes('404') || error.message.includes('Not Found')) {
+        // #region agent log
+        await logDebug('lib/sleeper.ts:getUserByUsername', 'user not found', {
+          username,
+          error: error.message,
+        })
+        // #endregion
         return null
       }
       // Log other errors for debugging
       console.error('Error fetching user by username:', error.message, username)
+      // #region agent log
+      await logDebug('lib/sleeper.ts:getUserByUsername', 'error fetching user', {
+        username,
+        error: error.message,
+        name: error.name,
+      })
+      // #endregion
     }
     throw error
   }
@@ -151,13 +193,35 @@ export async function getUserLeagues(userId: string, season?: string): Promise<S
     const url = `${SLEEPER_API_BASE}/user/${userId}/leagues/nfl/${currentSeason}`
     const leagues = await fetchWithRetry<SleeperLeague[]>(url)
     console.log('[getUserLeagues] Fetched leagues:', { userId, season: currentSeason, count: leagues?.length || 0 })
+    // #region agent log
+    await logDebug('lib/sleeper.ts:getUserLeagues', 'leagues fetched', {
+      userId,
+      season: currentSeason,
+      count: leagues?.length || 0,
+      sample: leagues?.slice(0, 2),
+    })
+    // #endregion
     return leagues || []
   } catch (error) {
     console.error('[getUserLeagues] Error fetching leagues:', error, { userId, season })
     // Return empty array instead of throwing - user might not have leagues this season
     if (error instanceof Error && (error.message.includes('404') || error.message.includes('Not Found'))) {
+      // #region agent log
+      await logDebug('lib/sleeper.ts:getUserLeagues', 'leagues not found (404)', {
+        userId,
+        season,
+      })
+      // #endregion
       return []
     }
+    // #region agent log
+    await logDebug('lib/sleeper.ts:getUserLeagues', 'error fetching leagues', {
+      userId,
+      season,
+      error: error instanceof Error ? error.message : String(error),
+      name: error instanceof Error ? error.name : undefined,
+    })
+    // #endregion
     throw error
   }
 }
