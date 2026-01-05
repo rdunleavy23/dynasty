@@ -20,9 +20,15 @@ interface PageProps {
 async function getLeagueIntelDirect(leagueId: string): Promise<LeagueIntelResponse | null> {
   try {
     // Fetch league with all related data directly from database
+    // Try by sleeperLeagueId first (for external IDs), then by internal id
     const league = await Promise.race([
-      prisma.league.findUnique({
-        where: { id: leagueId },
+      prisma.league.findFirst({
+        where: {
+          OR: [
+            { sleeperLeagueId: leagueId },
+            { id: leagueId },
+          ],
+        },
         include: {
           teams: {
             include: {
@@ -33,7 +39,7 @@ async function getLeagueIntelDirect(leagueId: string): Promise<LeagueIntelRespon
         },
       }),
       new Promise((_, reject) => setTimeout(() => reject(new Error('Prisma query timeout after 10s')), 10000))
-    ]) as Awaited<ReturnType<typeof prisma.league.findUnique>>
+    ]) as Awaited<ReturnType<typeof prisma.league.findFirst>>
     if (!league) {
       return null
     }
