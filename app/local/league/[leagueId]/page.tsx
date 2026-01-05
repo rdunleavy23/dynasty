@@ -10,6 +10,22 @@ import { TeamCard } from '@/components/TeamCard'
 import { IntelFeed } from '@/components/IntelFeed'
 import { daysSince } from '@/lib/analysis/strategy'
 import type { LeagueIntelResponse, TeamCard as TeamCardType, IntelFeedItem, PositionalNeedsMap } from '@/types'
+import { appendFile } from 'fs/promises'
+import { join } from 'path'
+
+const LOG_PATH = join(process.cwd(), '.cursor', 'debug.log')
+
+async function logDebug(location: string, message: string, data: any) {
+  try {
+    const logEntry = JSON.stringify({
+      location,
+      message,
+      data,
+      timestamp: Date.now(),
+    }) + '\n'
+    await appendFile(LOG_PATH, logEntry, 'utf-8').catch(() => {})
+  } catch {}
+}
 
 interface PageProps {
   params: {
@@ -17,8 +33,101 @@ interface PageProps {
   }
 }
 
+function getDemoLeagueIntel(leagueId: string): LeagueIntelResponse {
+  // Demo data for proof of concept when database is not configured
+  return {
+    league: {
+      id: 'demo-league',
+      name: `Sleeper League ${leagueId}`,
+      season: 2024,
+      lastSyncAt: new Date(),
+    },
+    teams: [
+      {
+        id: 'demo-team-1',
+        displayName: 'Team Alpha',
+        teamName: 'Alpha Squad',
+        strategyLabel: 'CONTEND',
+        strategyReason: 'Adding veterans (avg age 28.5) and dropping youth (avg age 22.3) – pushing for a championship.',
+        lastActivityAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+        daysSinceActivity: 2,
+        positionalNeeds: { QB: 'STABLE', RB: 'THIN', WR: 'DESPERATE', TE: 'HOARDING' },
+        last30dAdds: 8,
+        last30dDrops: 5,
+      },
+      {
+        id: 'demo-team-2',
+        displayName: 'Team Beta',
+        teamName: 'Beta Builders',
+        strategyLabel: 'REBUILD',
+        strategyReason: 'Adding young players (avg age 23.1) and dropping vets (avg age 27.8) – rebuilding for the future.',
+        lastActivityAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
+        daysSinceActivity: 5,
+        positionalNeeds: { QB: 'THIN', RB: 'STABLE', WR: 'STABLE', TE: 'THIN' },
+        last30dAdds: 12,
+        last30dDrops: 8,
+      },
+      {
+        id: 'demo-team-3',
+        displayName: 'Team Gamma',
+        teamName: 'Gamma Gamers',
+        strategyLabel: 'TINKER',
+        strategyReason: 'High activity (15 moves in 30 days) with mixed player ages – actively tinkering without clear direction.',
+        lastActivityAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+        daysSinceActivity: 1,
+        positionalNeeds: { QB: 'STABLE', RB: 'STABLE', WR: 'STABLE', TE: 'STABLE' },
+        last30dAdds: 9,
+        last30dDrops: 6,
+      },
+    ],
+    feed: [
+      {
+        teamId: 'demo-team-1',
+        teamName: 'Alpha Squad',
+        message: 'Added 4 WRs in the last 30 days → likely WR desperate',
+        timestamp: new Date(),
+        category: 'waiver',
+      },
+      {
+        teamId: 'demo-team-2',
+        teamName: 'Beta Builders',
+        message: 'Adding young players (avg age 23.1) and dropping vets (avg age 27.8) – rebuilding for the future.',
+        timestamp: new Date(),
+        category: 'strategy',
+      },
+      {
+        teamId: 'demo-team-3',
+        teamName: 'Gamma Gamers',
+        message: 'High activity (15 moves in 30 days) with mixed player ages – actively tinkering without clear direction.',
+        timestamp: new Date(),
+        category: 'strategy',
+      },
+    ],
+    summary: {
+      mostActiveTeam: 'Gamma Gamers',
+      mostInactiveTeam: 'Beta Builders',
+      avgMovesPerTeam: 13.3,
+    },
+  }
+}
+
 async function getLeagueIntelDirect(leagueId: string): Promise<LeagueIntelResponse | null> {
+  // #region agent log
+  await logDebug('app/local/league/[leagueId]/page.tsx:20', 'getLeagueIntelDirect entry', { leagueId, hasDbUrl: !!process.env.DATABASE_URL })
+  // #endregion
+  
+  // If no database URL, return demo data for proof of concept
+  if (!process.env.DATABASE_URL) {
+    // #region agent log
+    await logDebug('app/local/league/[leagueId]/page.tsx:25', 'using demo data', { leagueId })
+    // #endregion
+    return getDemoLeagueIntel(leagueId)
+  }
+  
   try {
+    // #region agent log
+    await logDebug('app/local/league/[leagueId]/page.tsx:24', 'before prisma query', { leagueId })
+    // #endregion
     // Fetch league with all related data directly from database
     // Try by sleeperLeagueId first (for external IDs), then by internal id
     const league = await Promise.race([
@@ -40,14 +149,25 @@ async function getLeagueIntelDirect(leagueId: string): Promise<LeagueIntelRespon
       }),
       new Promise((_, reject) => setTimeout(() => reject(new Error('Prisma query timeout after 10s')), 10000))
     ]) as Awaited<ReturnType<typeof prisma.league.findFirst>>
+    // #region agent log
+    await logDebug('app/local/league/[leagueId]/page.tsx:38', 'after prisma query', { leagueFound: !!league, leagueName: league?.name, teamsCount: league?.teams?.length || 0 })
+    // #endregion
     if (!league) {
+      // #region agent log
+      await logDebug('app/local/league/[leagueId]/page.tsx:41', 'league not found', { leagueId })
+      // #endregion
       return null
     }
 
     // Build team cards
     const teamCards: TeamCardType[] = league.teams.map((team) => {
       const daysSinceActivity = daysSince(team.lastActivityAt)
-      const positionalNeeds = (team.positionalProfile?.positionalNeeds as PositionalNeedsMap) || {}
+      // Parse JSON string for SQLite compatibility
+      const positionalNeeds = team.positionalProfile?.positionalNeeds
+        ? (typeof team.positionalProfile.positionalNeeds === 'string'
+            ? JSON.parse(team.positionalProfile.positionalNeeds)
+            : team.positionalProfile.positionalNeeds) as PositionalNeedsMap
+        : {}
 
       return {
         id: team.id,
@@ -82,7 +202,10 @@ async function getLeagueIntelDirect(leagueId: string): Promise<LeagueIntelRespon
 
       // Waiver activity insights
       if (summary) {
-        const addsByPos = summary.addsByPosition as Record<string, number>
+        // Parse JSON string for SQLite compatibility
+        const addsByPos = typeof summary.addsByPosition === 'string'
+          ? JSON.parse(summary.addsByPosition) as Record<string, number>
+          : (summary.addsByPosition as Record<string, number>)
 
         // Check for position-specific activity
         if (addsByPos && typeof addsByPos === 'object' && !Array.isArray(addsByPos)) {
@@ -152,11 +275,29 @@ async function getLeagueIntelDirect(leagueId: string): Promise<LeagueIntelRespon
       },
     }
 
+    // #region agent log
+    await logDebug('app/local/league/[leagueId]/page.tsx:190', 'getLeagueIntelDirect success', { teamsCount: response.teams.length, feedCount: response.feed.length })
+    // #endregion
     return response
   } catch (error) {
+    // #region agent log
+    await logDebug('app/local/league/[leagueId]/page.tsx:194', 'getLeagueIntelDirect error', { 
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorName: error instanceof Error ? error.name : undefined,
+      hasDbUrl: !!process.env.DATABASE_URL
+    })
+    // #endregion
     console.error('Error fetching league intel directly:', error)
     
-    // Check if it's a database connection error
+    // If database error and no DATABASE_URL, fall back to demo data
+    if (error instanceof Error && error.message.includes('DATABASE_URL') && !process.env.DATABASE_URL) {
+      // #region agent log
+      await logDebug('app/local/league/[leagueId]/page.tsx:202', 'falling back to demo data', { leagueId })
+      // #endregion
+      return getDemoLeagueIntel(leagueId)
+    }
+    
+    // Check if it's a database connection error (but DATABASE_URL is set)
     if (error instanceof Error && error.message.includes('DATABASE_URL')) {
       throw new Error('DATABASE_URL environment variable is not set. Please configure your database connection.')
     }
@@ -166,6 +307,9 @@ async function getLeagueIntelDirect(leagueId: string): Promise<LeagueIntelRespon
 }
 
 export default async function LocalLeagueAnalysisPage({ params }: PageProps) {
+  // #region agent log
+  await logDebug('app/local/league/[leagueId]/page.tsx:200', 'LocalLeagueAnalysisPage entry', { leagueId: params.leagueId, hasDbUrl: !!process.env.DATABASE_URL })
+  // #endregion
   const leagueId = params.leagueId
   
   let intel: LeagueIntelResponse | null = null
@@ -175,9 +319,18 @@ export default async function LocalLeagueAnalysisPage({ params }: PageProps) {
     intel = await getLeagueIntelDirect(leagueId)
   } catch (error) {
     errorMessage = error instanceof Error ? error.message : String(error)
+    // #region agent log
+    await logDebug('app/local/league/[leagueId]/page.tsx:209', 'caught error in page', { errorMessage })
+    // #endregion
   }
+  
+  // #region agent log
+  await logDebug('app/local/league/[leagueId]/page.tsx:213', 'after getLeagueIntelDirect', { intelExists: !!intel, errorMessage })
+  // #endregion
 
-  if (errorMessage) {
+  // Only show database error if we have DATABASE_URL set but it's still failing
+  // Otherwise, demo mode will handle it
+  if (errorMessage && process.env.DATABASE_URL) {
     return <DatabaseError leagueId={leagueId} errorMessage={errorMessage} />
   }
 

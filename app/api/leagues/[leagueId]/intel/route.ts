@@ -59,7 +59,12 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
     // Build team cards
     const teamCards: TeamCard[] = league.teams.map((team) => {
       const daysSinceActivity = daysSince(team.lastActivityAt)
-      const positionalNeeds = (team.positionalProfile?.positionalNeeds as PositionalNeedsMap) || {}
+      // Parse JSON string for SQLite compatibility
+      const positionalNeeds = team.positionalProfile?.positionalNeeds
+        ? (typeof team.positionalProfile.positionalNeeds === 'string'
+            ? JSON.parse(team.positionalProfile.positionalNeeds)
+            : team.positionalProfile.positionalNeeds) as PositionalNeedsMap
+        : {}
 
       return {
         id: team.id,
@@ -94,7 +99,10 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
 
       // Waiver activity insights
       if (summary) {
-        const addsByPos = summary.addsByPosition as Record<string, number>
+        // Parse JSON string for SQLite compatibility
+        const addsByPos = typeof summary.addsByPosition === 'string'
+          ? JSON.parse(summary.addsByPosition) as Record<string, number>
+          : (summary.addsByPosition as Record<string, number>)
 
         // Check for position-specific activity
         if (addsByPos && typeof addsByPos === 'object' && !Array.isArray(addsByPos)) {

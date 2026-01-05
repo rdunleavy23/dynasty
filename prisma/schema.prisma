@@ -1,12 +1,12 @@
 // Prisma schema for League Intel
-// Database: PostgreSQL
+// Database: SQLite for local dev, PostgreSQL for production
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -33,12 +33,12 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -72,7 +72,7 @@ model League {
   sleeperLeagueId  String   @unique
   name             String
   season           Int
-  platform         Platform @default(SLEEPER)
+  platform         String   @default("SLEEPER") // Platform enum: SLEEPER, MFL, ESPN
   ownerUserId      String
   lastSyncAt       DateTime?
   createdAt        DateTime @default(now())
@@ -87,12 +87,6 @@ model League {
   @@map("leagues")
 }
 
-enum Platform {
-  SLEEPER
-  MFL
-  ESPN
-}
-
 // Teams within a league
 model LeagueTeam {
   id                  String          @id @default(cuid())
@@ -102,9 +96,9 @@ model LeagueTeam {
   displayName         String
   teamName            String?         // Optional custom team name
   lastActivityAt      DateTime?
-  strategyLabel       StrategyLabel?
+  strategyLabel       String?         // StrategyLabel enum: REBUILD, CONTEND, TINKER, INACTIVE
   strategyConfidence  Float?          // 0.0 to 1.0
-  notes               String?         @db.Text
+  notes               String?
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
 
@@ -119,13 +113,6 @@ model LeagueTeam {
   @@map("league_teams")
 }
 
-enum StrategyLabel {
-  REBUILD
-  CONTEND
-  TINKER
-  INACTIVE
-}
-
 // Individual waiver/transaction records
 model WaiverTransaction {
   id              String    @id @default(cuid())
@@ -135,7 +122,7 @@ model WaiverTransaction {
   playerName      String
   playerPosition  String    // QB, RB, WR, TE, etc.
   playerAge       Int?
-  transactionType TransactionType
+  transactionType String // TransactionType enum: ADD, DROP
   transactionDate DateTime
   week            Int
   createdAt       DateTime  @default(now())
@@ -149,11 +136,6 @@ model WaiverTransaction {
   @@map("waiver_transactions")
 }
 
-enum TransactionType {
-  ADD
-  DROP
-}
-
 // Aggregated waiver activity summary per team
 model TeamWaiverSummary {
   id                  String   @id @default(cuid())
@@ -161,11 +143,11 @@ model TeamWaiverSummary {
   teamId              String   @unique
   last30dAdds         Int      @default(0)
   last30dDrops        Int      @default(0)
-  addsByPosition      Json     // { "QB": 2, "RB": 4, "WR": 3, "TE": 1 }
-  dropsByPosition     Json     // Same structure
+  addsByPosition      String   // JSON string: { "QB": 2, "RB": 4, "WR": 3, "TE": 1 }
+  dropsByPosition     String   // JSON string: Same structure
   avgPlayerAgeAdded   Float?
   avgPlayerAgeDropped Float?
-  activityTrend       ActivityTrend?
+  activityTrend       String?  // ActivityTrend enum: RISING, FALLING, STABLE, INACTIVE
   calculatedAt        DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -176,20 +158,13 @@ model TeamWaiverSummary {
   @@map("team_waiver_summary")
 }
 
-enum ActivityTrend {
-  RISING
-  FALLING
-  STABLE
-  INACTIVE
-}
-
 // Positional needs and roster composition
 model TeamPositionalProfile {
   id               String   @id @default(cuid())
   leagueId         String
   teamId           String   @unique
-  positionalNeeds  Json     // { "QB": "STABLE", "RB": "THIN", "WR": "DESPERATE", "TE": "HOARDING" }
-  rosterCounts     Json     // { "QB": { "starters": 2, "bench": 1 }, "RB": { ... } }
+  positionalNeeds  String   // JSON string: { "QB": "STABLE", "RB": "THIN", "WR": "DESPERATE", "TE": "HOARDING" }
+  rosterCounts     String   // JSON string: { "QB": { "starters": 2, "bench": 1 }, "RB": { ... } }
   calculatedAt     DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

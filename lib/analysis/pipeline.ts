@@ -79,7 +79,7 @@ export async function recomputeTeamWaiverSummary(teamId: string): Promise<void> 
     activityTrend = 'FALLING'
   }
 
-  // Upsert summary
+  // Upsert summary (serialize JSON fields for SQLite)
   await prisma.teamWaiverSummary.upsert({
     where: { teamId },
     create: {
@@ -87,20 +87,20 @@ export async function recomputeTeamWaiverSummary(teamId: string): Promise<void> 
       leagueId: team.leagueId,
       last30dAdds: adds.length,
       last30dDrops: drops.length,
-      addsByPosition,
-      dropsByPosition,
+      addsByPosition: JSON.stringify(addsByPosition),
+      dropsByPosition: JSON.stringify(dropsByPosition),
       avgPlayerAgeAdded: avgAgeAdded,
       avgPlayerAgeDropped: avgAgeDropped,
-      activityTrend,
+      activityTrend: activityTrend,
     },
     update: {
       last30dAdds: adds.length,
       last30dDrops: drops.length,
-      addsByPosition,
-      dropsByPosition,
+      addsByPosition: JSON.stringify(addsByPosition),
+      dropsByPosition: JSON.stringify(dropsByPosition),
       avgPlayerAgeAdded: avgAgeAdded,
       avgPlayerAgeDropped: avgAgeDropped,
-      activityTrend,
+      activityTrend: activityTrend,
       updatedAt: new Date(),
     },
   })
@@ -160,18 +160,18 @@ export async function recomputeTeamPositionalProfile(
     waiverAddsByPosition
   )
 
-  // Upsert positional profile
+  // Upsert positional profile (serialize JSON fields for SQLite)
   await prisma.teamPositionalProfile.upsert({
     where: { teamId },
     create: {
       teamId,
       leagueId: team.leagueId,
-      positionalNeeds,
-      rosterCounts,
+      positionalNeeds: JSON.stringify(positionalNeeds),
+      rosterCounts: JSON.stringify(rosterCounts),
     },
     update: {
-      positionalNeeds,
-      rosterCounts,
+      positionalNeeds: JSON.stringify(positionalNeeds),
+      rosterCounts: JSON.stringify(rosterCounts),
       updatedAt: new Date(),
     },
   })
@@ -206,11 +206,11 @@ export async function recomputeTeamStrategy(teamId: string): Promise<void> {
   // Classify
   const classification = classifyTeamStrategy(signals)
 
-  // Update team
+  // Update team (strategyLabel is now a string in SQLite)
   await prisma.leagueTeam.update({
     where: { id: teamId },
     data: {
-      strategyLabel: classification.label,
+      strategyLabel: classification.label as string,
       strategyConfidence: classification.confidence,
       notes: classification.reason,
       updatedAt: new Date(),
