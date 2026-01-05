@@ -31,7 +31,19 @@ export default function SignInPage() {
       })
 
       if (result?.error) {
-        setError('Failed to send email. Please try again.')
+        // Provide more specific error messages
+        if (result.error === 'Configuration') {
+          setError(
+            'Server configuration error. ' +
+            (process.env.NODE_ENV === 'development'
+              ? 'Check server console for details. In development, magic links may be logged to console.'
+              : 'Please contact support.')
+          )
+        } else if (result.error === 'Verification') {
+          setError('The sign-in link expired or was already used. Please request a new one.')
+        } else {
+          setError(`Failed to send email: ${result.error}. Please try again.`)
+        }
       } else if (result?.ok) {
         setSubmitted(true)
       } else {
@@ -95,12 +107,20 @@ export default function SignInPage() {
                   type="email"
                   id="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value)
+                    setError('') // Clear error when user types
+                  }}
                   placeholder="you@example.com"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                   required
                   disabled={loading}
+                  pattern="[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}"
+                  title="Please enter a valid email address"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  We&apos;ll send a magic link to this email address
+                </p>
               </div>
 
               <button
