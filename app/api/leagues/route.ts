@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
     const teamPromises = sleeperUsers.map(async (user) => {
       const roster = rosterMap.get(user.user_id)
       if (!roster) {
-        console.warn(\`No roster found for user \${user.user_id}\`)
+        console.warn(`No roster found for user ${user.user_id}`)
         return null
       }
 

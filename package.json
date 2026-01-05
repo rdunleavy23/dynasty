@@ -7,6 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "type-check": "tsc --noEmit",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -31,6 +35,9 @@
     "postcss": "^8.4.0",
     "autoprefixer": "^10.4.0",
     "eslint": "^8.57.0",
-    "eslint-config-next": "^14.2.0"
+    "eslint-config-next": "^14.2.0",
+    "vitest": "^1.6.0",
+    "@vitest/ui": "^1.6.0",
+    "@vitest/coverage-v8": "^1.6.0"
   }
 }
