@@ -7,7 +7,8 @@
 'use client'
 
 import { useState } from 'react'
-import { signIn } from 'next-auth/react'
+import { signIn, getSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import { BarChart3, Mail, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -15,16 +16,30 @@ export default function SignInPage() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState('')
+  const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    setError('')
 
     try {
-      await signIn('email', { email, redirect: false })
-      setSubmitted(true)
+      const result = await signIn('email', {
+        email,
+        redirect: false
+      })
+
+      if (result?.error) {
+        setError('Failed to send email. Please try again.')
+      } else if (result?.ok) {
+        setSubmitted(true)
+      } else {
+        setError('An unexpected error occurred. Please try again.')
+      }
     } catch (error) {
       console.error('Sign in error:', error)
+      setError('Failed to send email. Please check your connection and try again.')
     } finally {
       setLoading(false)
     }
@@ -65,6 +80,12 @@ export default function SignInPage() {
               <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
                 Sign In
               </h2>
+
+              {error && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
+                  {error}
+                </div>
+              )}
 
               <div className="mb-6">
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
