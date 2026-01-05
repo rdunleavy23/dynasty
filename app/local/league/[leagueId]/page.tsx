@@ -9,23 +9,7 @@ import { prisma } from '@/lib/db'
 import { TeamCard } from '@/components/TeamCard'
 import { IntelFeed } from '@/components/IntelFeed'
 import { daysSince } from '@/lib/analysis/strategy'
-import type { LeagueIntelResponse, TeamCard as TeamCardType, IntelFeedItem, PositionalNeedsMap } from '@/types'
-import { appendFile } from 'fs/promises'
-import { join } from 'path'
-
-const LOG_PATH = join(process.cwd(), '.cursor', 'debug.log')
-
-async function logDebug(location: string, message: string, data: any) {
-  try {
-    const logEntry = JSON.stringify({
-      location,
-      message,
-      data,
-      timestamp: Date.now(),
-    }) + '\n'
-    await appendFile(LOG_PATH, logEntry, 'utf-8').catch(() => {})
-  } catch {}
-}
+import type { LeagueIntelResponse, TeamCard as TeamCardType, IntelFeedItem, PositionalNeedsMap, StrategyLabel } from '@/types'
 
 interface PageProps {
   params: {
@@ -112,50 +96,37 @@ function getDemoLeagueIntel(leagueId: string): LeagueIntelResponse {
 }
 
 async function getLeagueIntelDirect(leagueId: string): Promise<LeagueIntelResponse | null> {
-  // #region agent log
-  await logDebug('app/local/league/[leagueId]/page.tsx:20', 'getLeagueIntelDirect entry', { leagueId, hasDbUrl: !!process.env.DATABASE_URL })
-  // #endregion
-  
   // If no database URL, return demo data for proof of concept
   if (!process.env.DATABASE_URL) {
-    // #region agent log
-    await logDebug('app/local/league/[leagueId]/page.tsx:25', 'using demo data', { leagueId })
-    // #endregion
     return getDemoLeagueIntel(leagueId)
   }
   
   try {
-    // #region agent log
-    await logDebug('app/local/league/[leagueId]/page.tsx:24', 'before prisma query', { leagueId })
-    // #endregion
     // Fetch league with all related data directly from database
     // Try by sleeperLeagueId first (for external IDs), then by internal id
-    const league = await Promise.race([
-      prisma.league.findFirst({
-        where: {
-          OR: [
-            { sleeperLeagueId: leagueId },
-            { id: leagueId },
-          ],
-        },
-        include: {
-          teams: {
-            include: {
-              waiverSummary: true,
-              positionalProfile: true,
-            },
+    const leagueQuery = prisma.league.findFirst({
+      where: {
+        OR: [
+          { sleeperLeagueId: leagueId },
+          { id: leagueId },
+        ],
+      },
+      include: {
+        teams: {
+          include: {
+            waiverSummary: true,
+            positionalProfile: true,
           },
         },
-      }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Prisma query timeout after 10s')), 10000))
-    ]) as Awaited<ReturnType<typeof prisma.league.findFirst>>
-    // #region agent log
-    await logDebug('app/local/league/[leagueId]/page.tsx:38', 'after prisma query', { leagueFound: !!league, leagueName: league?.name, teamsCount: league?.teams?.length || 0 })
-    // #endregion
+      },
+    })
+    
+    const league = await Promise.race([
+      leagueQuery,
+      new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Prisma query timeout after 10s')), 10000))
+    ]) as Awaited<typeof leagueQuery>
+    
     if (!league) {
-      // #region agent log
-      await logDebug('app/local/league/[leagueId]/page.tsx:41', 'league not found', { leagueId })
-      // #endregion
       return null
     }
 
@@ -173,7 +144,7 @@ async function getLeagueIntelDirect(leagueId: string): Promise<LeagueIntelRespon
         id: team.id,
         displayName: team.displayName,
         teamName: team.teamName || undefined,
-        strategyLabel: team.strategyLabel,
+        strategyLabel: team.strategyLabel as StrategyLabel | null,
         strategyReason: team.notes || 'No strategy analysis yet',
         lastActivityAt: team.lastActivityAt,
         daysSinceActivity,
@@ -275,25 +246,12 @@ async function getLeagueIntelDirect(leagueId: string): Promise<LeagueIntelRespon
       },
     }
 
-    // #region agent log
-    await logDebug('app/local/league/[leagueId]/page.tsx:190', 'getLeagueIntelDirect success', { teamsCount: response.teams.length, feedCount: response.feed.length })
-    // #endregion
     return response
   } catch (error) {
-    // #region agent log
-    await logDebug('app/local/league/[leagueId]/page.tsx:194', 'getLeagueIntelDirect error', { 
-      errorMessage: error instanceof Error ? error.message : String(error),
-      errorName: error instanceof Error ? error.name : undefined,
-      hasDbUrl: !!process.env.DATABASE_URL
-    })
-    // #endregion
     console.error('Error fetching league intel directly:', error)
     
     // If database error and no DATABASE_URL, fall back to demo data
     if (error instanceof Error && error.message.includes('DATABASE_URL') && !process.env.DATABASE_URL) {
-      // #region agent log
-      await logDebug('app/local/league/[leagueId]/page.tsx:202', 'falling back to demo data', { leagueId })
-      // #endregion
       return getDemoLeagueIntel(leagueId)
     }
     
@@ -307,9 +265,6 @@ async function getLeagueIntelDirect(leagueId: string): Promise<LeagueIntelRespon
 }
 
 export default async function LocalLeagueAnalysisPage({ params }: PageProps) {
-  // #region agent log
-  await logDebug('app/local/league/[leagueId]/page.tsx:200', 'LocalLeagueAnalysisPage entry', { leagueId: params.leagueId, hasDbUrl: !!process.env.DATABASE_URL })
-  // #endregion
   const leagueId = params.leagueId
   
   let intel: LeagueIntelResponse | null = null
@@ -319,14 +274,7 @@ export default async function LocalLeagueAnalysisPage({ params }: PageProps) {
     intel = await getLeagueIntelDirect(leagueId)
   } catch (error) {
     errorMessage = error instanceof Error ? error.message : String(error)
-    // #region agent log
-    await logDebug('app/local/league/[leagueId]/page.tsx:209', 'caught error in page', { errorMessage })
-    // #endregion
   }
-  
-  // #region agent log
-  await logDebug('app/local/league/[leagueId]/page.tsx:213', 'after getLeagueIntelDirect', { intelExists: !!intel, errorMessage })
-  // #endregion
 
   // Only show database error if we have DATABASE_URL set but it's still failing
   // Otherwise, demo mode will handle it
@@ -437,7 +385,7 @@ function DatabaseError({ leagueId, errorMessage }: { leagueId: string; errorMess
               <p className="font-semibold mb-2">To fix this:</p>
               <ol className="list-decimal list-inside space-y-1">
                 <li>Create a <code className="bg-gray-100 px-1 rounded">.env</code> file in the project root</li>
-                <li>Add: <code className="bg-gray-100 px-1 rounded">DATABASE_URL="postgresql://..."</code></li>
+                <li>Add: <code className="bg-gray-100 px-1 rounded">DATABASE_URL=&quot;postgresql://...&quot;</code></li>
                 <li>Restart the dev server</li>
               </ol>
             </div>

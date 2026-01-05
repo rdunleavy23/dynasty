@@ -2,10 +2,11 @@
  * Shared TypeScript types for League Intel
  */
 
-import { Platform, StrategyLabel, TransactionType, ActivityTrend } from '@prisma/client'
-
-// Re-export Prisma enums for convenience
-export { Platform, StrategyLabel, TransactionType, ActivityTrend }
+// Enum types (stored as String in SQLite, but typed as enums for TypeScript)
+export type Platform = 'SLEEPER' | 'MFL' | 'ESPN'
+export type StrategyLabel = 'REBUILD' | 'CONTEND' | 'TINKER' | 'INACTIVE'
+export type TransactionType = 'ADD' | 'DROP'
+export type ActivityTrend = 'INCREASING' | 'DECREASING' | 'STABLE'
 
 // Sleeper API response types
 export interface SleeperLeague {

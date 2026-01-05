@@ -121,6 +121,30 @@ export async function getAllPlayers(): Promise<Record<string, SleeperPlayer>> {
 }
 
 /**
+ * Get user by username
+ */
+export async function getUserByUsername(username: string): Promise<SleeperUser | null> {
+  try {
+    const url = `${SLEEPER_API_BASE}/user/${username}`
+    return await fetchWithRetry<SleeperUser>(url)
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('404')) {
+      return null
+    }
+    throw error
+  }
+}
+
+/**
+ * Get all leagues for a user
+ */
+export async function getUserLeagues(userId: string, season?: string): Promise<SleeperLeague[]> {
+  const currentSeason = season || new Date().getFullYear().toString()
+  const url = `${SLEEPER_API_BASE}/user/${userId}/leagues/nfl/${currentSeason}`
+  return fetchWithRetry<SleeperLeague[]>(url)
+}
+
+/**
  * Get current NFL state (current week, season, etc.)
  */
 export async function getNFLState(): Promise<{

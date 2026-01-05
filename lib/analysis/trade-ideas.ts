@@ -11,7 +11,8 @@
  */
 
 import { prisma } from '@/lib/db'
-import type { TradeIdea, PositionalState, StrategyLabel } from '@/types'
+import { deserializeJson } from '@/lib/utils/json-helpers'
+import type { TradeIdea, PositionalState, StrategyLabel, PositionalNeedsMap } from '@/types'
 
 /**
  * Generate trade ideas for a specific team
@@ -63,7 +64,7 @@ export async function generateTradeIdeas(
     return []
   }
 
-  const myNeeds = myTeam.positionalProfile.positionalNeeds as Record<string, PositionalState>
+  const myNeeds = deserializeJson(myTeam.positionalProfile.positionalNeeds) as PositionalNeedsMap || {}
   const ideas: TradeIdea[] = []
 
   // Identify my surpluses and needs
@@ -83,10 +84,7 @@ export async function generateTradeIdeas(
   for (const otherTeam of otherTeams) {
     if (!otherTeam.positionalProfile || !otherTeam.positionalProfile.positionalNeeds) continue
 
-    const theirNeeds = otherTeam.positionalProfile.positionalNeeds as Record<
-      string,
-      PositionalState
-    >
+    const theirNeeds = deserializeJson(otherTeam.positionalProfile.positionalNeeds) as PositionalNeedsMap || {}
 
     // Find positions where we have surplus and they have need
     for (const myGivePos of mySurplus) {
@@ -98,8 +96,8 @@ export async function generateTradeIdeas(
           if (theirState === 'HOARDING' && myNeedsList.includes(theirPos)) {
             // Match found!
             const idea = buildTradeIdea(
-              myTeam,
-              otherTeam,
+              { ...myTeam, strategyLabel: myTeam.strategyLabel as StrategyLabel | null },
+              { ...otherTeam, strategyLabel: otherTeam.strategyLabel as StrategyLabel | null },
               myGivePos,
               theirPos,
               theirNeed,
@@ -115,8 +113,8 @@ export async function generateTradeIdeas(
           for (const myNeedPos of myNeedsList) {
             if (myNeedPos !== myGivePos) {
               const idea = buildTradeIdea(
-                myTeam,
-                otherTeam,
+                { ...myTeam, strategyLabel: myTeam.strategyLabel as StrategyLabel | null },
+                { ...otherTeam, strategyLabel: otherTeam.strategyLabel as StrategyLabel | null },
                 myGivePos,
                 myNeedPos,
                 theirNeed,

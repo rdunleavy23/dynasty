@@ -16,6 +16,7 @@ import type {
   TeamCard,
   IntelFeedItem,
   PositionalNeedsMap,
+  StrategyLabel,
 } from '@/types'
 
 interface RouteContext {
@@ -70,7 +71,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
         id: team.id,
         displayName: team.displayName,
         teamName: team.teamName || undefined,
-        strategyLabel: team.strategyLabel,
+        strategyLabel: team.strategyLabel as StrategyLabel | null,
         strategyReason: team.notes || 'No strategy analysis yet',
         lastActivityAt: team.lastActivityAt,
         daysSinceActivity,
