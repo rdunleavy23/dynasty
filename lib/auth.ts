@@ -1,7 +1,7 @@
 /**
  * NextAuth configuration
  *
- * Using email magic link authentication for simplicity.
+ * Using email magic link authentication with Resend.
  * User sessions are managed through NextAuth's built-in session system.
  */
 
@@ -9,20 +9,16 @@ import { NextAuthOptions } from 'next-auth'
 import EmailProvider from 'next-auth/providers/email'
 import { PrismaAdapter } from '@next-auth/prisma-adapter'
 import { prisma } from './db'
+import { sendMagicLinkEmail } from './email'
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
     EmailProvider({
-      server: {
-        host: process.env.EMAIL_SERVER_HOST || 'localhost',
-        port: parseInt(process.env.EMAIL_SERVER_PORT || '587'),
-        auth: {
-          user: process.env.EMAIL_SERVER_USER || '',
-          pass: process.env.EMAIL_SERVER_PASSWORD || '',
-        },
+      from: process.env.EMAIL_FROM || 'League Intel <noreply@leagueintel.app>',
+      sendVerificationRequest: async ({ identifier: email, url }) => {
+        await sendMagicLinkEmail({ to: email, url })
       },
-      from: process.env.EMAIL_FROM || 'noreply@leagueintel.app',
     }),
   ],
   pages: {

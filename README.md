@@ -19,6 +19,7 @@ League Intel is designed for casual dynasty fantasy football managers who:
 4. **Positional Needs Analysis** - See who's desperate/thin/stable/hoarding at each position
 5. **League Intel Dashboard** - Visual overview of all teams with explanations
 6. **Smart Trade Ideas** - Contextual trade suggestions based on complementary needs
+7. **Weekly Email Digest** - Automatic email summaries with top insights and trade ideas
 
 ## Tech Stack
 
@@ -71,12 +72,13 @@ League Intel is designed for casual dynasty fantasy football managers who:
    # Cron job security
    CRON_SECRET="your-cron-secret-here"
 
-   # Email (optional for dev, required for production)
-   EMAIL_SERVER_HOST="smtp.example.com"
-   EMAIL_SERVER_PORT="587"
-   EMAIL_SERVER_USER="your-email@example.com"
-   EMAIL_SERVER_PASSWORD="your-password"
-   EMAIL_FROM="noreply@leagueintel.app"
+   # Email with Resend (optional for dev, required for production)
+   RESEND_API_KEY="re_xxxxxxxxxxxxx"
+   EMAIL_FROM="League Intel <noreply@leagueintel.app>"
+
+   # Email Digest Configuration (optional)
+   DIGEST_ENABLED="true"
+   DIGEST_DAY="1"  # 0=Sunday, 1=Monday, etc.
    ```
 
 4. **Set up the database**
@@ -117,7 +119,11 @@ dynasty/
 │   │   ├── positions.ts  # Positional needs detection
 │   │   ├── pipeline.ts   # Analysis orchestration
 │   │   └── trade-ideas.ts # Trade suggestion engine
+│   ├── digest/           # Email digest system
+│   │   └── generator.ts  # Digest generation logic
 │   ├── sleeper.ts        # Sleeper API wrapper
+│   ├── email.ts          # Email service (Resend)
+│   ├── env.ts            # Environment validation
 │   ├── db.ts             # Prisma client
 │   └── auth.ts           # NextAuth config
 ├── prisma/
@@ -158,14 +164,17 @@ dynasty/
 
 ## Deployment
 
-### Vercel (Recommended)
+For complete deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md).
+
+### Quick Start (Vercel)
 
 1. Push your code to GitHub
 2. Import the repository to Vercel
-3. Set environment variables in Vercel dashboard
-4. Deploy!
+3. Create Vercel Postgres database
+4. Set environment variables in Vercel dashboard
+5. Deploy!
 
-The app includes a `vercel.json` configuration for automated daily syncs.
+The app includes a `vercel.json` configuration for automated daily syncs and weekly email digests.
 
 ### Database Setup
 
@@ -215,7 +224,8 @@ All analysis logic is documented and tunable. Key files:
 
 ### Cron/Background Jobs
 
-- `GET /api/cron/sync-all` - Sync all leagues (Vercel Cron)
+- `GET /api/cron/sync-all` - Sync all leagues (Vercel Cron - daily at 2 AM UTC)
+- `GET /api/cron/send-digests` - Send weekly email digests (Vercel Cron - Mondays at 9 AM UTC)
 - `GET /api/cron/sync-league?leagueId=X&secret=Y` - Sync one league
 - `GET /api/cron/recompute-league?leagueId=X&secret=Y` - Recompute analysis
 
