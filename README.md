@@ -25,7 +25,7 @@ League Intel is designed for casual dynasty fantasy football managers who:
 - **Framework**: Next.js 14+ (App Router)
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS
-- **Database**: PostgreSQL (via Supabase or Vercel Postgres)
+- **Database**: SQLite (local dev) or PostgreSQL (production)
 - **ORM**: Prisma
 - **Auth**: NextAuth.js (email magic link)
 - **Hosting**: Vercel
@@ -36,8 +36,8 @@ League Intel is designed for casual dynasty fantasy football managers who:
 ### Prerequisites
 
 - Node.js 18+ and npm/yarn
-- PostgreSQL database (local or cloud)
 - Sleeper account with at least one dynasty league
+- (No database installation needed - uses SQLite by default)
 
 ### Installation
 
@@ -61,8 +61,8 @@ League Intel is designed for casual dynasty fantasy football managers who:
 
    Fill in the required values:
    ```env
-   # Database (use Supabase, Vercel Postgres, or local PostgreSQL)
-   DATABASE_URL="postgresql://user:password@localhost:5432/league_intel?schema=public"
+   # Database (SQLite for local dev - no external services needed)
+   DATABASE_URL="file:./prisma/dev.db"
 
    # NextAuth (generate secret with: openssl rand -base64 32)
    NEXTAUTH_URL="http://localhost:3000"
@@ -169,18 +169,16 @@ The app includes a `vercel.json` configuration for automated daily syncs.
 
 ### Database Setup
 
-Use Vercel Postgres or Supabase:
+**Local Development (Default):**
+- Uses SQLite - no setup needed!
+- Database file: `prisma/dev.db`
+- No external services required
 
-**Vercel Postgres:**
-```bash
-vercel postgres create
-vercel env pull .env.local
-```
-
-**Supabase:**
-1. Create a new project at https://supabase.com
-2. Copy the connection string from Settings → Database
-3. Update `DATABASE_URL` in your environment
+**Production (Optional - PostgreSQL):**
+For production, you can use PostgreSQL:
+- Vercel Postgres: `vercel postgres create`
+- Supabase: Create project and copy connection string
+- Or any PostgreSQL database
 
 ## Analysis Heuristics
 

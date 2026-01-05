@@ -1,44 +1,24 @@
 # Database Setup Guide
 
-## Quick Setup with Supabase (Recommended - 2 minutes)
+## Quick Setup with SQLite (Default - No External Services)
 
-1. **Create a Supabase account**
-   - Go to https://supabase.com
-   - Sign up (free tier is sufficient)
+SQLite is now the default database for local development. It requires no external services, no installation, and works completely offline.
 
-2. **Create a new project**
-   - Click "New Project"
-   - Choose an organization
-   - Name your project (e.g., "league-intel")
-   - Set a database password (save this!)
-   - Choose a region close to you
-   - Click "Create new project"
-   - Wait 2-3 minutes for setup
+1. **The database is already configured!**
+   - Your `.env` file has `DATABASE_URL="file:./prisma/dev.db"`
+   - This creates a local SQLite database file
 
-3. **Get your connection string**
-   - Go to Settings → Database
-   - Scroll to "Connection string"
-   - Select "URI" tab
-   - Copy the connection string (looks like: `postgresql://postgres:[YOUR-PASSWORD]@db.xxxxx.supabase.co:5432/postgres`)
-
-4. **Update your .env file**
-   ```bash
-   # Replace [YOUR-PASSWORD] with the password you set
-   DATABASE_URL="postgresql://postgres:[YOUR-PASSWORD]@db.xxxxx.supabase.co:5432/postgres"
-   ```
-
-5. **Run migrations**
+2. **Run migrations (if not already done)**
    ```bash
    npx prisma migrate dev --name init
    npx prisma generate
    ```
 
-6. **Restart your dev server**
-   ```bash
-   npm run dev
-   ```
+3. **That's it!** The database is ready to use.
 
-## Alternative: Local PostgreSQL
+The SQLite database file (`prisma/dev.db`) is created automatically and contains all your data locally. No external services needed!
+
+## Alternative: Local PostgreSQL (Optional)
 
 If you prefer local PostgreSQL:
 

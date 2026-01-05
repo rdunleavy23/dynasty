@@ -47,8 +47,8 @@ Transforms raw transaction data into actionable insights about:
 
 ### Infrastructure
 - **Hosting**: Vercel (configured in `vercel.json`)
-- **Database**: PostgreSQL (Supabase or Vercel Postgres)
-- **Cron Jobs**: Vercel Cron (daily sync at 2 AM)
+- **Database**: SQLite (local dev) or PostgreSQL (production)
+- **Cron Jobs**: Vercel Cron (daily sync at 2 AM) - production only
 - **Caching**: Next.js built-in caching (5-minute revalidation for Sleeper API)
 
 ### Development Tools
@@ -398,9 +398,10 @@ Return LeagueIntelResponse
 ### Infrastructure Considerations
 
 **Database**:
-- PostgreSQL via Supabase or Vercel Postgres
+- SQLite for local development (no external services)
+- PostgreSQL for production (Supabase, Vercel Postgres, or self-hosted)
 - Connection pooling recommended for production
-- Backup strategy needed
+- Backup strategy needed for production
 
 **API Rate Limits**:
 - Sleeper API: Unspecified limits (implemented retry logic)

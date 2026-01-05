@@ -8,10 +8,11 @@ echo "🔍 Checking DATABASE_URL..."
 if ! grep -q "DATABASE_URL=" .env || grep -q 'DATABASE_URL=""' .env; then
   echo "❌ DATABASE_URL not set in .env"
   echo ""
-  echo "Please:"
-  echo "1. Set up Supabase (see DATABASE_SETUP.md)"
-  echo "2. Add DATABASE_URL to .env"
-  echo "3. Run this script again"
+  echo "Please add DATABASE_URL to .env:"
+  echo "  For SQLite (default, no external services): DATABASE_URL=\"file:./prisma/dev.db\""
+  echo "  For PostgreSQL: DATABASE_URL=\"postgresql://user:password@localhost:5432/league_intel?schema=public\""
+  echo ""
+  echo "See DATABASE_SETUP.md for more options"
   exit 1
 fi
 
