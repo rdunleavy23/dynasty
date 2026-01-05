@@ -147,13 +147,13 @@ export function getPositionalStateEmoji(state: PositionalState): string {
 export function getPositionalStateColor(state: PositionalState): string {
   switch (state) {
     case 'DESPERATE':
-      return 'bg-red-100 text-red-800 border-red-300'
+      return 'bg-desperate-50 text-desperate-700 border-desperate-100'
     case 'THIN':
-      return 'bg-orange-100 text-orange-800 border-orange-300'
+      return 'bg-thin-50 text-thin-700 border-thin-100'
     case 'STABLE':
-      return 'bg-green-100 text-green-800 border-green-300'
+      return 'bg-stable-50 text-stable-700 border-stable-100'
     case 'HOARDING':
-      return 'bg-purple-100 text-purple-800 border-purple-300'
+      return 'bg-hoarding-50 text-hoarding-700 border-hoarding-100'
   }
 }
 

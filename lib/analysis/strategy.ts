@@ -153,13 +153,13 @@ export function getStrategyEmoji(label: StrategyLabel | null): string {
 export function getStrategyColor(label: StrategyLabel | null): string {
   switch (label) {
     case 'REBUILD':
-      return 'bg-blue-100 text-blue-800 border-blue-300'
+      return 'bg-rebuild-50 text-rebuild-700 border-rebuild-100'
     case 'CONTEND':
-      return 'bg-green-100 text-green-800 border-green-300'
+      return 'bg-contend-50 text-contend-700 border-contend-100'
     case 'TINKER':
-      return 'bg-yellow-100 text-yellow-800 border-yellow-300'
+      return 'bg-tinker-50 text-tinker-700 border-tinker-100'
     case 'INACTIVE':
-      return 'bg-gray-100 text-gray-600 border-gray-300'
+      return 'bg-inactive-50 text-inactive-600 border-inactive-100'
     default:
       return 'bg-gray-50 text-gray-500 border-gray-200'
   }

@@ -24,36 +24,40 @@ interface LeagueCardProps {
 }
 
 export function LeagueCard({ league }: LeagueCardProps) {
+  const isSynced = Boolean(league.lastSyncAt)
+
   return (
-    <Link href={`/leagues/${league.id}`}>
-      <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5 hover:shadow-lg hover:border-primary-300 transition-all cursor-pointer">
-        <div className="flex items-start justify-between mb-3">
-          <div>
-            <h3 className="text-lg font-bold text-gray-900">{league.name}</h3>
-            <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
-              <div className="flex items-center gap-1">
-                <Calendar className="w-4 h-4" />
-                <span>{league.season}</span>
+    <Link href={`/leagues/${league.id}`} className="group block">
+      <div className="bg-white rounded-xl shadow-soft hover:shadow-soft-lg border border-gray-100 group-hover:border-primary-200 p-6 transition-all duration-200 animate-scale-in">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-lg font-semibold text-gray-900 truncate group-hover:text-primary-600 transition-colors">
+              {league.name}
+            </h3>
+            <div className="flex items-center gap-4 mt-2.5">
+              <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                <Calendar className="w-4 h-4 text-gray-400" />
+                <span className="font-medium">{league.season}</span>
               </div>
-              <div className="flex items-center gap-1">
-                <Users className="w-4 h-4" />
+              <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                <Users className="w-4 h-4 text-gray-400" />
                 <span>{league._count.teams} teams</span>
               </div>
             </div>
           </div>
-          <div className="px-2.5 py-1 rounded-full bg-primary-100 text-primary-700 text-xs font-medium">
+          <div className="ml-3 px-3 py-1.5 rounded-lg bg-primary-50 text-primary-700 text-xs font-semibold border border-primary-100">
             {league.platform}
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-gray-500">
-          <RefreshCw className="w-4 h-4" />
+        <div className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg ${isSynced ? 'bg-green-50 text-green-700' : 'bg-orange-50 text-orange-700'}`}>
+          <RefreshCw className={`w-4 h-4 ${isSynced ? '' : 'animate-pulse'}`} />
           {league.lastSyncAt ? (
-            <span>
+            <span className="font-medium">
               Synced {formatDistanceToNow(new Date(league.lastSyncAt), { addSuffix: true })}
             </span>
           ) : (
-            <span className="text-orange-600 font-medium">Not synced yet</span>
+            <span className="font-semibold">Not synced yet – Click to sync</span>
           )}
         </div>
       </div>

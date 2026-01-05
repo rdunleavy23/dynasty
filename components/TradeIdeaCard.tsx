@@ -16,42 +16,45 @@ interface TradeIdeaCardProps {
 export function TradeIdeaCard({ idea }: TradeIdeaCardProps) {
   const confidencePercent = Math.round(idea.confidence * 100)
 
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.8) return 'bg-green-100 text-green-800 border-green-300'
-    if (confidence >= 0.6) return 'bg-yellow-100 text-yellow-800 border-yellow-300'
-    return 'bg-gray-100 text-gray-800 border-gray-300'
+  const getConfidenceStyle = (confidence: number) => {
+    if (confidence >= 0.8) return 'bg-stable-50 text-stable-700 border-stable-100'
+    if (confidence >= 0.6) return 'bg-tinker-50 text-tinker-700 border-tinker-100'
+    return 'bg-inactive-50 text-inactive-600 border-inactive-100'
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md border border-gray-200 p-5 hover:shadow-lg transition-shadow">
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <div className="p-2 rounded-full bg-blue-100 text-blue-600">
+    <div className="group bg-white rounded-xl shadow-soft hover:shadow-soft-lg border border-gray-100 hover:border-primary-200 p-6 transition-all duration-200 animate-scale-in">
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-gradient-to-br from-primary-50 to-primary-100 text-primary-600 border border-primary-200">
             <Lightbulb className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900">{idea.targetTeamName}</h3>
+            <h3 className="font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">
+              {idea.targetTeamName}
+            </h3>
+            <p className="text-xs text-gray-500 mt-0.5">Trade opportunity</p>
           </div>
         </div>
-        <div className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getConfidenceColor(idea.confidence)}`}>
-          {confidencePercent}% match
+        <div className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${getConfidenceStyle(idea.confidence)}`}>
+          {confidencePercent}% Match
         </div>
       </div>
 
-      <div className="flex items-center gap-3 mb-3 text-sm">
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-700 rounded-md border border-red-200">
-          <span className="font-medium">Give:</span>
-          <span>{idea.suggestedGivePosition}</span>
+      <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-100">
+        <div className="flex-1 flex items-center gap-2.5 px-4 py-2.5 bg-desperate-50 text-desperate-700 rounded-lg border border-desperate-100">
+          <span className="text-xs font-semibold uppercase tracking-wide">Give</span>
+          <span className="font-bold text-sm">{idea.suggestedGivePosition}</span>
         </div>
-        <ArrowRight className="w-4 h-4 text-gray-400" />
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-700 rounded-md border border-green-200">
-          <span className="font-medium">Get:</span>
-          <span>{idea.suggestedGetPosition}</span>
+        <ArrowRight className="w-5 h-5 text-primary-400 flex-shrink-0" />
+        <div className="flex-1 flex items-center gap-2.5 px-4 py-2.5 bg-stable-50 text-stable-700 rounded-lg border border-stable-100">
+          <span className="text-xs font-semibold uppercase tracking-wide">Get</span>
+          <span className="font-bold text-sm">{idea.suggestedGetPosition}</span>
         </div>
       </div>
 
-      <div className="pt-3 border-t border-gray-100">
-        <p className="text-sm text-gray-700">{idea.rationale}</p>
+      <div className="pt-1">
+        <p className="text-sm text-gray-700 leading-relaxed">{idea.rationale}</p>
       </div>
     </div>
   )
