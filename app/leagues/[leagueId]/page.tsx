@@ -138,7 +138,7 @@ function LeagueNotSynced({ leagueId }: { leagueId: string }) {
         </div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">League Not Synced</h2>
         <p className="text-gray-600 mb-6">
-          This league hasn't been synced yet. Run your first sync to start analyzing.
+          This league hasn&apos;t been synced yet. Run your first sync to start analyzing.
         </p>
         <form action={`/api/leagues/${leagueId}/sync`} method="POST">
           <button

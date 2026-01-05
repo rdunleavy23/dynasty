@@ -77,7 +77,7 @@ export default function TradeIdeasPage({ params }: PageProps) {
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Trade Ideas</h1>
               <p className="text-gray-600 mt-1">
-                Smart suggestions based on your league's actual behavior
+                Smart suggestions based on your league&apos;s actual behavior
               </p>
             </div>
           </div>
@@ -103,7 +103,7 @@ export default function TradeIdeasPage({ params }: PageProps) {
               No trade ideas yet
             </h3>
             <p className="text-gray-600">
-              We couldn't find any strong trade matches based on current positional needs.
+              We couldn&apos;t find any strong trade matches based on current positional needs.
               Sync your league data or check back after more waiver activity.
             </p>
           </div>

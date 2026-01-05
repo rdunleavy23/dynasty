@@ -18,7 +18,7 @@ import {
 export async function GET(req: NextRequest) {
   try {
     // Verify cron secret
-    const { searchParams } = new URL(req.url)
+    const searchParams = req.nextUrl.searchParams
     const secret = searchParams.get('secret')
     const leagueId = searchParams.get('leagueId')
 

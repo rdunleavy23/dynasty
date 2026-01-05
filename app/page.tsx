@@ -37,7 +37,7 @@ export default function Home() {
           </h2>
           <p className="text-xl text-gray-600 mb-8 leading-relaxed">
             Analyze waivers, moves, and roster trends so you can propose trades{' '}
-            <span className="font-semibold text-gray-900">they'll actually accept</span>.
+            <span className="font-semibold text-gray-900">they&apos;ll actually accept</span>.
           </p>
           <Link
             href="/dashboard"
@@ -63,8 +63,8 @@ export default function Home() {
               Spot Rebuilders vs Contenders
             </h3>
             <p className="text-gray-600">
-              Automatically classify teams based on their waiver behavior. Know who's buying,
-              who's selling, and who's checked out.
+              Automatically classify teams based on their waiver behavior. Know who&apos;s buying,
+              who&apos;s selling, and who&apos;s checked out.
             </p>
           </div>
 
@@ -74,7 +74,7 @@ export default function Home() {
               <Target className="w-6 h-6" />
             </div>
             <h3 className="text-xl font-bold text-gray-900 mb-2">
-              See Who's Desperate at QB/RB/WR/TE
+              See Who&apos;s Desperate at QB/RB/WR/TE
             </h3>
             <p className="text-gray-600">
               Track positional needs based on recent adds and roster composition. Find the teams
@@ -91,7 +91,7 @@ export default function Home() {
               Get Smart Trade Ideas
             </h3>
             <p className="text-gray-600">
-              Receive contextual trade suggestions grounded in your league's actual behavior—not
+              Receive contextual trade suggestions grounded in your league&apos;s actual behavior—not
               just generic trade calculators.
             </p>
           </div>
@@ -110,7 +110,7 @@ export default function Home() {
             </div>
             <h4 className="font-semibold text-gray-900 mb-2">Connect Your League</h4>
             <p className="text-sm text-gray-600">
-              Paste your Sleeper league ID and we'll import your league
+              Paste your Sleeper league ID and we&apos;ll import your league
             </p>
           </div>
 
@@ -130,7 +130,7 @@ export default function Home() {
             </div>
             <h4 className="font-semibold text-gray-900 mb-2">View Intel</h4>
             <p className="text-sm text-gray-600">
-              See each team's strategy, needs, and activity level at a glance
+              See each team&apos;s strategy, needs, and activity level at a glance
             </p>
           </div>
 

@@ -51,7 +51,7 @@ export default function SignInPage() {
               </div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Check your email</h2>
               <p className="text-gray-600 mb-6">
-                We've sent a magic link to <strong>{email}</strong>. Click the link to sign in.
+                We&apos;ve sent a magic link to <strong>{email}</strong>. Click the link to sign in.
               </p>
               <button
                 onClick={() => setSubmitted(false)}
@@ -101,14 +101,14 @@ export default function SignInPage() {
               </button>
 
               <p className="text-sm text-gray-500 mt-4 text-center">
-                We'll email you a magic link for a password-free sign in.
+                We&apos;ll email you a magic link for a password-free sign in.
               </p>
             </form>
           )}
         </div>
 
         <p className="text-center text-sm text-gray-600 mt-6">
-          Don't have an account? Sign in with email to create one automatically.
+          Don&apos;t have an account? Sign in with email to create one automatically.
         </p>
       </div>
     </div>
