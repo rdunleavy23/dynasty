@@ -10,6 +10,8 @@ import { LeagueCard } from '@/components/LeagueCard'
 import { Plus } from 'lucide-react'
 import Link from 'next/link'
 
+export const dynamic = 'force-dynamic'
+
 export default async function DashboardPage() {
   // Fetch all leagues (no authentication required)
   const leagues = await prisma.league.findMany({

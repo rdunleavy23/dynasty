@@ -11,6 +11,8 @@ import { IntelFeed } from '@/components/IntelFeed'
 import { daysSince } from '@/lib/analysis/strategy'
 import type { LeagueIntelResponse, TeamCard as TeamCardType, IntelFeedItem, PositionalNeedsMap, StrategyLabel } from '@/types'
 
+export const dynamic = 'force-dynamic'
+
 interface PageProps {
   params: {
     leagueId: string

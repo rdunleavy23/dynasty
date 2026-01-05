@@ -10,6 +10,8 @@ import { getUserByUsername, getUserLeagues } from '@/lib/sleeper'
 import Link from 'next/link'
 import { ArrowRight, ExternalLink, AlertCircle } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 interface PageProps {
   params: {
     username: string
