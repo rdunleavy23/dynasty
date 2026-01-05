@@ -78,6 +78,14 @@ model League {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+  // League configuration from Sleeper API
+  numTeams         Int      @default(12)
+  rosterPositions  Json?    // ["QB", "RB", "RB", "WR", "WR", "WR", "TE", "FLEX", "FLEX", "BN", "BN", ...]
+  scoringSettings  Json?    // { "rec": 1.0, "pass_td": 4, "rush_td": 6, ... }
+  rosterSize       Int?     // Total roster spots
+  taxiSlots        Int      @default(0)
+  reserveSlots     Int      @default(0)
+
   // Relations
   owner                  User                     @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
   teams                  LeagueTeam[]

@@ -14,12 +14,13 @@ League Intel is designed for casual dynasty fantasy football managers who:
 ### Core Features (v1)
 
 1. **League Connection** - Connect your Sleeper league with just a league ID
-2. **Waiver Tracking** - Automatically track adds/drops and transaction patterns
-3. **Team Strategy Classification** - Identify teams as REBUILD, CONTEND, TINKER, or INACTIVE
-4. **Positional Needs Analysis** - See who's desperate/thin/stable/hoarding at each position
-5. **League Intel Dashboard** - Visual overview of all teams with explanations
-6. **Smart Trade Ideas** - Contextual trade suggestions based on complementary needs
-7. **Weekly Email Digest** - Automatic email summaries with top insights and trade ideas
+2. **League-Aware Analysis** - Automatically adapts to your league settings (superflex, PPR, roster size, etc.)
+3. **Waiver Tracking** - Automatically track adds/drops and transaction patterns
+4. **Team Strategy Classification** - Identify teams as REBUILD, CONTEND, TINKER, or INACTIVE
+5. **Dynamic Positional Needs** - Analysis adjusts for league format (QB value in superflex, TE premium, etc.)
+6. **League Intel Dashboard** - Visual overview of all teams with explanations
+7. **Smart Trade Ideas** - Context-aware suggestions that account for scoring format and positional scarcity
+8. **Weekly Email Digest** - Automatic email summaries with top insights and trade ideas
 
 ## Tech Stack
 
@@ -193,24 +194,42 @@ vercel env pull .env.local
 
 ## Analysis Heuristics
 
-All analysis logic is documented and tunable. Key files:
+All analysis logic is **dynamically adjusted** based on your league configuration. The app automatically imports:
+- Roster positions (QB, RB, WR, TE, FLEX, SUPERFLEX, etc.)
+- Scoring settings (PPR, TE Premium, etc.)
+- Roster size and depth requirements
+- League size (adjusts scarcity calculations)
 
-- **`lib/analysis/strategy.ts`** - Team strategy classification
-  - INACTIVE: 21+ days without activity
-  - REBUILD: Adding young players (≤24), dropping vets (≥26)
-  - CONTEND: Adding vets (≥26), dropping youth (≤24)
-  - TINKER: Mixed patterns
+### Strategy Classification (`lib/analysis/strategy.ts`)
+- **INACTIVE**: 21+ days without activity
+- **REBUILD**: Adding young players (≤24), dropping vets (≥26)
+- **CONTEND**: Adding vets (≥26), dropping youth (≤24)
+- **TINKER**: Mixed patterns
 
-- **`lib/analysis/positions.ts`** - Positional needs
-  - DESPERATE: 3+ waiver adds in 21 days
-  - THIN: Low bench depth
-  - STABLE: Adequate depth
-  - HOARDING: Deep bench (5+ for RB/WR, 3+ for QB/TE)
+### Positional Needs (`lib/analysis/positions.ts`)
+**Thresholds automatically adjust for league settings:**
+- **DESPERATE**: High waiver activity (scaled by position scarcity)
+  - Superflex: QB desperation threshold increases
+  - TE Premium: TE desperation threshold increases
+- **THIN**: Below recommended depth for league format
+  - More RBs needed in larger leagues
+  - More QBs needed in superflex
+- **STABLE**: Adequate depth for roster requirements
+- **HOARDING**: Well above recommended depth
+  - Dynasty leagues: 5-6 RBs considered hoarding
+  - Redraft: 3-4 RBs considered hoarding
 
-- **`lib/analysis/trade-ideas.ts`** - Trade matching
-  - Finds complementary needs (surplus → desperate)
-  - Considers team strategies
-  - Generates human-readable rationales
+### Trade Ideas (`lib/analysis/trade-ideas.ts`)
+**Position values weighted by league format:**
+- **Superflex**: QB value significantly higher (1.8x multiplier)
+- **PPR**: WR value higher, RB value adjusted
+- **TE Premium**: TE value significantly higher (1.4x multiplier)
+- **League size**: Scarcity increases in 14+ team leagues
+
+Trade recommendations include context like:
+- "QB value is premium in superflex – ensure fair return"
+- "PPR format favors WRs – may need additional value"
+- "TE premium scoring – TEs worth more in this league"
 
 ## API Endpoints
 

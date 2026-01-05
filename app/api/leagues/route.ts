@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
       getLeagueRosters(sleeperLeagueId),
     ])
 
-    // Create league
+    // Create league with configuration
     const league = await prisma.league.create({
       data: {
         sleeperLeagueId,
@@ -58,6 +58,12 @@ export async function POST(req: NextRequest) {
         season: parseInt(sleeperLeague.season),
         platform: 'SLEEPER',
         ownerUserId: userId,
+        numTeams: sleeperLeague.settings.num_teams || 12,
+        rosterPositions: sleeperLeague.roster_positions || [],
+        scoringSettings: sleeperLeague.scoring_settings || {},
+        rosterSize: sleeperLeague.roster_positions?.length || null,
+        taxiSlots: sleeperLeague.settings.taxi_slots || 0,
+        reserveSlots: sleeperLeague.settings.reserve_slots || 0,
       },
     })
 

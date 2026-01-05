@@ -8,53 +8,67 @@
  * - HOARDING: Above average depth, surplus
  *
  * Uses roster counts + recent waiver activity to infer needs.
+ * Dynamically adjusts thresholds based on league configuration.
  */
 
 import type { PositionalState, PositionalInputs, PositionalNeedsMap, RosterCountsMap } from '@/types'
+import type { LeagueConfig } from '@/lib/league-config'
+import { getPositionalThresholds } from '@/lib/league-config'
 
 /**
  * Classify positional state for a single position
  *
- * Heuristics (tunable):
- * - DESPERATE: 3+ waiver adds in last 21 days OR (thin bench AND recent adds)
- * - THIN: Bench depth < 2 (excluding desperate case)
- * - HOARDING: Bench depth >= 5
+ * Dynamically adjusts thresholds based on league configuration:
+ * - DESPERATE: High waiver activity for position (scaled by scarcity)
+ * - THIN: Below recommended depth for league settings
+ * - HOARDING: Well above recommended depth
  * - STABLE: Everything else
  *
  * @param inputs - Position-specific roster and waiver data
+ * @param leagueConfig - Optional league configuration for dynamic thresholds
  * @returns Positional state classification
  */
-export function classifyPositionState(inputs: PositionalInputs): PositionalState {
+export function classifyPositionState(
+  inputs: PositionalInputs,
+  leagueConfig?: LeagueConfig
+): PositionalState {
   const { position, starters, bench, waiverAdds21d } = inputs
+  const totalPlayers = starters + bench
+
+  // Get thresholds (dynamic if config provided, otherwise use defaults)
+  let desperateAdds: number
+  let thinBenchCount: number
+  let hoardingBenchCount: number
+
+  if (leagueConfig && (position === 'QB' || position === 'RB' || position === 'WR' || position === 'TE')) {
+    const thresholds = getPositionalThresholds(position, leagueConfig)
+    desperateAdds = thresholds.desperateAdds
+    thinBenchCount = thresholds.thinBenchCount
+    hoardingBenchCount = thresholds.hoardingBenchCount
+  } else {
+    // Default thresholds (backward compatible)
+    desperateAdds = 3
+    thinBenchCount = position === 'QB' || position === 'TE' ? 2 : 4
+    hoardingBenchCount = position === 'QB' || position === 'TE' ? 3 : 6
+  }
 
   // DESPERATE: High waiver activity signals urgent need
-  if (waiverAdds21d >= 3) {
+  if (waiverAdds21d >= desperateAdds) {
     return 'DESPERATE'
   }
 
-  // Also DESPERATE: Thin + some recent adds
-  if (bench < 2 && waiverAdds21d >= 2) {
+  // Also DESPERATE: Very thin + some recent adds
+  if (totalPlayers < thinBenchCount - 1 && waiverAdds21d >= 2) {
     return 'DESPERATE'
   }
 
-  // THIN: Low bench depth
-  // Position-specific thresholds:
-  // - QB: typically start 1-2, thin if bench < 1
-  // - RB/WR: start 2-3, thin if bench < 2
-  // - TE: start 1-2, thin if bench < 1
-  const thinThreshold = position === 'QB' || position === 'TE' ? 1 : 2
-
-  if (bench < thinThreshold) {
+  // THIN: Below recommended depth
+  if (totalPlayers < thinBenchCount) {
     return 'THIN'
   }
 
   // HOARDING: Deep bench indicates surplus
-  // Position-specific thresholds:
-  // - QB/TE: hoarding if bench >= 3 (rare in dynasty to need this many)
-  // - RB/WR: hoarding if bench >= 5
-  const hoardingThreshold = position === 'QB' || position === 'TE' ? 3 : 5
-
-  if (bench >= hoardingThreshold) {
+  if (totalPlayers >= hoardingBenchCount) {
     return 'HOARDING'
   }
 
@@ -67,11 +81,13 @@ export function classifyPositionState(inputs: PositionalInputs): PositionalState
  *
  * @param rosterCounts - Map of position -> {starters, bench}
  * @param waiverAddsByPosition - Map of position -> count of adds in last 21 days
+ * @param leagueConfig - Optional league configuration for dynamic thresholds
  * @returns Positional needs map
  */
 export function buildPositionalProfile(
   rosterCounts: RosterCountsMap,
-  waiverAddsByPosition: Record<string, number>
+  waiverAddsByPosition: Record<string, number>,
+  leagueConfig?: LeagueConfig
 ): PositionalNeedsMap {
   const positions = ['QB', 'RB', 'WR', 'TE'] as const
   const needsMap: PositionalNeedsMap = {}
@@ -85,7 +101,7 @@ export function buildPositionalProfile(
       starters: counts.starters,
       bench: counts.bench,
       waiverAdds21d,
-    })
+    }, leagueConfig)
   }
 
   return needsMap

@@ -4,14 +4,18 @@
  * Generates contextual trade suggestions based on:
  * - Team strategies (rebuild vs contend)
  * - Positional needs (desperate vs hoarding)
- * - League context
+ * - League context (roster requirements, scoring format)
  *
- * v1: Simple complementary needs matching
- * Future: Could add player values, trade fairness, historical acceptance rates
+ * Adjusts trade value recommendations based on league settings:
+ * - Superflex leagues: QB value significantly higher
+ * - PPR: WR value higher, RB value lower
+ * - TE Premium: TE value significantly higher
  */
 
 import { prisma } from '@/lib/db'
 import type { TradeIdea, PositionalState, StrategyLabel } from '@/types'
+import type { LeagueConfig } from '@/lib/league-config'
+import { parseLeagueConfig, getPositionValueMultiplier } from '@/lib/league-config'
 
 /**
  * Generate trade ideas for a specific team
@@ -31,6 +35,20 @@ export async function generateTradeIdeas(
   myTeamId: string,
   leagueId: string
 ): Promise<TradeIdea[]> {
+  // Get league configuration
+  const league = await prisma.league.findUnique({
+    where: { id: leagueId },
+  })
+
+  const leagueConfig = league ? parseLeagueConfig({
+    numTeams: league.numTeams,
+    rosterPositions: league.rosterPositions as string[] | null,
+    scoringSettings: league.scoringSettings as Record<string, number> | null,
+    rosterSize: league.rosterSize,
+    taxiSlots: league.taxiSlots,
+    reserveSlots: league.reserveSlots,
+  }) : undefined
+
   // Get my team with profiles
   const myTeam = await prisma.leagueTeam.findUnique({
     where: { id: myTeamId },
@@ -100,7 +118,9 @@ export async function generateTradeIdeas(
               myGivePos,
               theirPos,
               theirNeed,
-              myNeeds[theirPos]
+              myNeeds[theirPos],
+              false,
+              leagueConfig
             )
             ideas.push(idea)
           }
@@ -118,7 +138,8 @@ export async function generateTradeIdeas(
                 myNeedPos,
                 theirNeed,
                 myNeeds[myNeedPos],
-                true // Less confident since it's not mutual surplus
+                true, // Less confident since it's not mutual surplus
+                leagueConfig
               )
               ideas.push(idea)
             }
@@ -155,7 +176,8 @@ function buildTradeIdea(
   myGetPos: string,
   theirNeedState: PositionalState,
   myNeedState: PositionalState,
-  lesserConfidence = false
+  lesserConfidence = false,
+  leagueConfig?: LeagueConfig
 ): TradeIdea {
   const otherTeamName = otherTeam.teamName || otherTeam.displayName
 
@@ -166,6 +188,14 @@ function buildTradeIdea(
     rationale += ` and has surplus ${myGetPos}s. You're ${myNeedState.toLowerCase()} at ${myGetPos} and have surplus ${myGivePos}s.`
   } else {
     rationale += `. You have surplus ${myGivePos}s and need ${myGetPos}s.`
+  }
+
+  // Add league-specific context
+  if (leagueConfig) {
+    const leagueContext = getLeagueTradeContext(myGivePos, myGetPos, leagueConfig)
+    if (leagueContext) {
+      rationale += ` ${leagueContext}`
+    }
   }
 
   // Add strategy context
@@ -190,6 +220,23 @@ function buildTradeIdea(
   // Boost for desperate need
   if (theirNeedState === 'DESPERATE') {
     confidence += 0.1
+  }
+
+  // Adjust confidence based on position value in this league
+  if (leagueConfig && (myGivePos === 'QB' || myGivePos === 'RB' || myGivePos === 'WR' || myGivePos === 'TE')) {
+    const giveMultiplier = getPositionValueMultiplier(myGivePos as 'QB' | 'RB' | 'WR' | 'TE', leagueConfig)
+    const getMultiplier = myGetPos === 'QB' || myGetPos === 'RB' || myGetPos === 'WR' || myGetPos === 'TE'
+      ? getPositionValueMultiplier(myGetPos as 'QB' | 'RB' | 'WR' | 'TE', leagueConfig)
+      : 1.0
+
+    // If giving more valuable position, reduce confidence slightly
+    if (giveMultiplier > getMultiplier * 1.2) {
+      confidence *= 0.95
+    }
+    // If getting more valuable position, boost confidence
+    if (getMultiplier > giveMultiplier * 1.2) {
+      confidence *= 1.05
+    }
   }
 
   // Cap at 0.95
@@ -236,6 +283,42 @@ function getStrategyTradeContext(
   // Trading with inactive team
   if (theirStrategy === 'INACTIVE') {
     return 'Warning: Team appears inactive, may not respond to offers.'
+  }
+
+  return null
+}
+
+/**
+ * Add league setting context to trade rationale
+ */
+function getLeagueTradeContext(
+  givePos: string,
+  getPos: string,
+  config: LeagueConfig
+): string | null {
+  // Superflex QB trades
+  if (config.scoringFormat.isSuperflex && (givePos === 'QB' || getPos === 'QB')) {
+    if (givePos === 'QB') {
+      return 'QB value is premium in superflex – ensure fair return.'
+    }
+    return 'QB highly valuable in superflex format.'
+  }
+
+  // TE Premium trades
+  if (config.scoringFormat.isTEPremium && (givePos === 'TE' || getPos === 'TE')) {
+    if (givePos === 'TE') {
+      return 'TE premium scoring – TEs worth more in this league.'
+    }
+    return 'TE premium league – target top-tier TEs.'
+  }
+
+  // PPR WR value
+  if (config.scoringFormat.isPPR && givePos === 'WR' && getPos === 'RB') {
+    return 'WRs generally more valuable in PPR.'
+  }
+
+  if (config.scoringFormat.isPPR && givePos === 'RB' && getPos === 'WR') {
+    return 'PPR format favors WRs – may need additional value.'
   }
 
   return null

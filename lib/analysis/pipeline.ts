@@ -9,6 +9,7 @@ import { prisma } from '@/lib/db'
 import { getEnrichedRoster } from '@/lib/sleeper'
 import { classifyTeamStrategy, daysSince } from './strategy'
 import { buildPositionalProfile, countRosterByPosition } from './positions'
+import { parseLeagueConfig } from '@/lib/league-config'
 import type { StrategySignals, PositionalNeedsMap, RosterCountsMap } from '@/types'
 
 /**
@@ -121,6 +122,7 @@ export async function recomputeTeamPositionalProfile(
   const team = await prisma.leagueTeam.findUnique({
     where: { id: teamId },
     include: {
+      league: true,
       waiverSummary: true,
       waiverTransactions: {
         where: {
@@ -134,6 +136,16 @@ export async function recomputeTeamPositionalProfile(
   })
 
   if (!team) throw new Error(`Team ${teamId} not found`)
+
+  // Parse league configuration for dynamic thresholds
+  const leagueConfig = parseLeagueConfig({
+    numTeams: team.league.numTeams,
+    rosterPositions: team.league.rosterPositions as string[] | null,
+    scoringSettings: team.league.scoringSettings as Record<string, number> | null,
+    rosterSize: team.league.rosterSize,
+    taxiSlots: team.league.taxiSlots,
+    reserveSlots: team.league.reserveSlots,
+  })
 
   // Count waiver adds by position (last 21 days for positional analysis)
   const waiverAddsByPosition: Record<string, number> = {}
@@ -154,10 +166,11 @@ export async function recomputeTeamPositionalProfile(
     rosterCounts = countRosterByPosition(enrichedRoster.players)
   }
 
-  // Build positional needs map
+  // Build positional needs map with league-specific thresholds
   const positionalNeeds: PositionalNeedsMap = buildPositionalProfile(
     rosterCounts,
-    waiverAddsByPosition
+    waiverAddsByPosition,
+    leagueConfig
   )
 
   // Upsert positional profile
