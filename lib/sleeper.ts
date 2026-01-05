@@ -125,11 +125,18 @@ export async function getAllPlayers(): Promise<Record<string, SleeperPlayer>> {
  */
 export async function getUserByUsername(username: string): Promise<SleeperUser | null> {
   try {
-    const url = `${SLEEPER_API_BASE}/user/${username}`
+    // URL encode the username to handle special characters
+    const encodedUsername = encodeURIComponent(username)
+    const url = `${SLEEPER_API_BASE}/user/${encodedUsername}`
     return await fetchWithRetry<SleeperUser>(url)
   } catch (error) {
-    if (error instanceof Error && error.message.includes('404')) {
-      return null
+    // Check for 404 or any error that indicates user not found
+    if (error instanceof Error) {
+      if (error.message.includes('404') || error.message.includes('Not Found')) {
+        return null
+      }
+      // Log other errors for debugging
+      console.error('Error fetching user by username:', error.message, username)
     }
     throw error
   }

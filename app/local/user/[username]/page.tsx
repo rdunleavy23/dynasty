@@ -20,11 +20,17 @@ interface PageProps {
 
 async function getUserLeaguesData(username: string) {
   try {
+    // Decode the username from URL (in case it was encoded)
+    const decodedUsername = decodeURIComponent(username).trim()
+    
     // First, get user by username from Sleeper API
-    const user = await getUserByUsername(username)
+    const user = await getUserByUsername(decodedUsername)
     if (!user) {
+      console.error('[getUserLeaguesData] User not found for username:', decodedUsername)
       return { user: null, sleeperLeagues: [], dbLeagues: [] }
     }
+    
+    console.log('[getUserLeaguesData] Found user:', user.user_id, user.username)
 
     // Get leagues from Sleeper API
     const sleeperLeagues = await getUserLeagues(user.user_id)
@@ -59,7 +65,7 @@ async function getUserLeaguesData(username: string) {
 }
 
 export default async function LocalUserLeaguesPage({ params }: PageProps) {
-  const username = params.username
+  const username = decodeURIComponent(params.username)
   const { user, sleeperLeagues, dbLeagues } = await getUserLeaguesData(username)
 
   if (!user) {
@@ -71,7 +77,7 @@ export default async function LocalUserLeaguesPage({ params }: PageProps) {
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">User Not Found</h2>
           <p className="text-gray-600 mb-4">
-            Sleeper username <code className="bg-gray-100 px-2 py-1 rounded text-sm">{username}</code> not found.
+            Sleeper username <code className="bg-gray-100 px-2 py-1 rounded text-sm">{decodeURIComponent(username)}</code> not found.
           </p>
           <Link
             href="/local"
