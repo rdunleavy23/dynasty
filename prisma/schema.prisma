@@ -109,16 +109,31 @@ model LeagueTeam {
   sleeperRosterId     Int             // Sleeper's roster_id
   displayName         String
   teamName            String?         // Optional custom team name
+  avatarUrl           String?         // Sleeper avatar URL
   lastActivityAt      DateTime?
   strategyLabel       StrategyLabel?
   strategyConfidence  Float?          // 0.0 to 1.0
   notes               String?         @db.Text
+
+  // Current season stats
+  wins                Int             @default(0)
+  losses              Int             @default(0)
+  ties                Int             @default(0)
+  pointsFor           Float           @default(0)
+  pointsAgainst       Float           @default(0)
+
+  // Roster snapshot (updated on sync)
+  currentRoster       Json?           // Array of player IDs
+  starters            Json?           // Array of starter player IDs
+
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
 
   // Relations
   league                    League                  @relation(fields: [leagueId], references: [id], onDelete: Cascade)
   waiverTransactions        WaiverTransaction[]
+  trades                    Trade[]                 @relation("TeamTrades")
+  draftPicks                DraftPick[]
   waiverSummary             TeamWaiverSummary?
   positionalProfile         TeamPositionalProfile?
 
@@ -198,6 +213,13 @@ model TeamPositionalProfile {
   teamId           String   @unique
   positionalNeeds  Json     // { "QB": "STABLE", "RB": "THIN", "WR": "DESPERATE", "TE": "HOARDING" }
   rosterCounts     Json     // { "QB": { "starters": 2, "bench": 1 }, "RB": { ... } }
+
+  // Detailed position states (for easier querying)
+  qbState          PositionalState?
+  rbState          PositionalState?
+  wrState          PositionalState?
+  teState          PositionalState?
+
   calculatedAt     DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -206,4 +228,101 @@ model TeamPositionalProfile {
 
   @@index([leagueId])
   @@map("team_positional_profile")
+}
+
+enum PositionalState {
+  DESPERATE
+  THIN
+  STABLE
+  HOARDING
+}
+
+// Completed trades between teams
+model Trade {
+  id                String   @id @default(cuid())
+  leagueId          String
+  sleeperTxnId      String   @unique // Sleeper transaction ID
+
+  // Trade participants (can be more than 2 in multi-team trades)
+  teamIds           String[] // Array of team IDs involved
+
+  // Assets traded
+  players           Json     // { "team1": ["player_id1", "player_id2"], "team2": [...] }
+  draftPicks        Json     // { "team1": [{ season: 2024, round: 1 }], "team2": [...] }
+  faabBudget        Json?    // FAAB exchanged if applicable
+
+  // Metadata
+  status            String   // "complete", "failed", "vetoed"
+  transactionDate   DateTime
+  week              Int?
+
+  createdAt         DateTime @default(now())
+
+  // Relations
+  teams             LeagueTeam[] @relation("TeamTrades")
+
+  @@index([leagueId, transactionDate])
+  @@map("trades")
+}
+
+// Draft picks (current and future)
+model DraftPick {
+  id              String   @id @default(cuid())
+  leagueId        String
+  teamId          String   // Current owner
+
+  // Pick details
+  season          Int      // Year of the draft
+  round           Int
+  pickNumber      Int?     // Overall pick number if known
+
+  // Trading history
+  originalTeamId  String?  // Original owner if traded
+  tradedAt        DateTime? // When it was traded
+
+  // Draft metadata
+  playerId        String?  // If already drafted
+  playerName      String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  team            LeagueTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([leagueId, season, round, originalTeamId])
+  @@index([leagueId, season])
+  @@index([teamId])
+  @@map("draft_picks")
+}
+
+// Player data cache (to avoid repeated Sleeper API calls)
+model Player {
+  id              String   @id // Sleeper player ID
+  sleeperPlayerId String   @unique
+
+  // Basic info
+  firstName       String?
+  lastName        String?
+  fullName        String?
+  position        String
+  team            String?  // NFL team
+  number          Int?
+
+  // Metadata
+  age             Int?
+  yearsExp        Int?
+  college         String?
+  injuryStatus    String?
+
+  // Fantasy relevant
+  fantasyPositions String[] // Can play multiple positions
+
+  // Cache timestamp
+  lastUpdated     DateTime @updatedAt
+  createdAt       DateTime @default(now())
+
+  @@index([position])
+  @@index([team])
+  @@map("players")
 }

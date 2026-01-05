@@ -235,3 +235,131 @@ export async function getEnrichedRoster(roster: SleeperRoster): Promise<{
     players,
   }
 }
+
+/**
+ * Get all traded draft picks in a league
+ * Includes future picks that have been traded
+ */
+export async function getTradedPicks(leagueId: string): Promise<any[]> {
+  const url = `${SLEEPER_API_BASE}/league/${leagueId}/traded_picks`
+  return fetchWithRetry<any[]>(url)
+}
+
+/**
+ * Get user information by user ID
+ * Useful for getting avatars and display names
+ */
+export async function getUser(userId: string): Promise<{
+  user_id: string
+  username: string
+  display_name: string
+  avatar: string | null
+}> {
+  const url = `${SLEEPER_API_BASE}/user/${userId}`
+  return fetchWithRetry(url)
+}
+
+/**
+ * Filter transactions to get only trades
+ * Trades have type="trade" and involve multiple roster_ids
+ */
+export function filterTrades(transactions: SleeperTransaction[]): SleeperTransaction[] {
+  return transactions.filter(txn => txn.type === 'trade')
+}
+
+/**
+ * Parse trade transaction into structured format
+ * Extracts who gave what to whom
+ */
+export async function enrichTradeTransaction(
+  transaction: SleeperTransaction,
+  rosterMap: Map<number, string> // roster_id -> team_id mapping
+): Promise<{
+  sleeperTxnId: string
+  teamIds: string[]
+  players: Record<string, string[]> // team_id -> player_ids given
+  draftPicks: Record<string, any[]> // team_id -> picks given
+  status: string
+  transactionDate: Date
+  week: number
+} | null> {
+  if (transaction.type !== 'trade') return null
+
+  const allPlayers = await getAllPlayers()
+
+  // Build team participation map
+  const teamIds: string[] = []
+  const players: Record<string, string[]> = {}
+  const draftPicks: Record<string, any[]> = {}
+
+  // Process adds (what each team received)
+  if (transaction.adds) {
+    for (const [playerId, rosterId] of Object.entries(transaction.adds)) {
+      const teamId = rosterMap.get(Number(rosterId))
+      if (!teamId) continue
+
+      if (!teamIds.includes(teamId)) teamIds.push(teamId)
+
+      // This team received this player, so we track who gave it
+      // (we'll reverse this logic to show what each team gave)
+    }
+  }
+
+  // Process roster_ids to understand all participants
+  if (transaction.roster_ids) {
+    for (const rosterId of transaction.roster_ids) {
+      const teamId = rosterMap.get(Number(rosterId))
+      if (teamId && !teamIds.includes(teamId)) {
+        teamIds.push(teamId)
+      }
+    }
+  }
+
+  // Initialize structures for each team
+  for (const teamId of teamIds) {
+    players[teamId] = []
+    draftPicks[teamId] = []
+  }
+
+  // Map what each team GAVE (inverse of adds)
+  if (transaction.adds && transaction.drops) {
+    for (const [playerId, receiverRosterId] of Object.entries(transaction.adds)) {
+      const receiverTeamId = rosterMap.get(Number(receiverRosterId))
+      if (!receiverTeamId) continue
+
+      // Find who gave this player (who dropped it)
+      const giverRosterId = transaction.drops[playerId]
+      if (giverRosterId) {
+        const giverTeamId = rosterMap.get(Number(giverRosterId))
+        if (giverTeamId) {
+          players[giverTeamId].push(playerId)
+        }
+      }
+    }
+  }
+
+  // Process draft picks
+  if (transaction.draft_picks) {
+    for (const pick of transaction.draft_picks) {
+      const receiverTeamId = rosterMap.get(Number(pick.roster_id))
+      const giverTeamId = rosterMap.get(Number(pick.previous_owner_id || pick.owner_id))
+
+      if (giverTeamId && pick.previous_owner_id) {
+        draftPicks[giverTeamId].push({
+          season: pick.season,
+          round: pick.round,
+        })
+      }
+    }
+  }
+
+  return {
+    sleeperTxnId: transaction.transaction_id,
+    teamIds,
+    players,
+    draftPicks,
+    status: transaction.status || 'complete',
+    transactionDate: new Date(transaction.status_updated || transaction.created),
+    week: transaction.leg || 0,
+  }
+}
