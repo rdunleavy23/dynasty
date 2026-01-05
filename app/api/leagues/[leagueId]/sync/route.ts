@@ -178,6 +178,24 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     })
   } catch (error) {
     console.error('[API] Error syncing league:', error)
+
+    // Handle specific error types
+    if (error instanceof Error) {
+      if (error.message.includes('Sleeper API error: 404')) {
+        return NextResponse.json(
+          { error: 'League not found', message: 'Please check your Sleeper league ID' },
+          { status: 404 }
+        )
+      }
+
+      if (error.message.includes('Sleeper API error: 429')) {
+        return NextResponse.json(
+          { error: 'Rate limited', message: 'Too many requests. Please try again in a few minutes.' },
+          { status: 429 }
+        )
+      }
+    }
+
     return NextResponse.json(
       { error: 'Failed to sync league', details: (error as Error).message },
       { status: 500 }

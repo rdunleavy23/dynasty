@@ -73,12 +73,22 @@ export function buildPositionalProfile(
   rosterCounts: RosterCountsMap,
   waiverAddsByPosition: Record<string, number>
 ): PositionalNeedsMap {
+  if (!rosterCounts || !waiverAddsByPosition) {
+    throw new Error('Invalid input: rosterCounts and waiverAddsByPosition are required')
+  }
   const positions = ['QB', 'RB', 'WR', 'TE'] as const
   const needsMap: PositionalNeedsMap = {}
 
   for (const position of positions) {
     const counts = rosterCounts[position] || { starters: 0, bench: 0 }
     const waiverAdds21d = waiverAddsByPosition[position] || 0
+
+    // Validate counts are reasonable
+    if (counts.starters < 0 || counts.bench < 0) {
+      console.warn(`Invalid roster counts for ${position}: starters=${counts.starters}, bench=${counts.bench}`)
+      counts.starters = Math.max(0, counts.starters)
+      counts.bench = Math.max(0, counts.bench)
+    }
 
     needsMap[position] = classifyPositionState({
       position,
@@ -100,19 +110,30 @@ export function buildPositionalProfile(
 export function countRosterByPosition(
   players: Array<{ position: string; isStarter: boolean }>
 ): RosterCountsMap {
+  if (!Array.isArray(players)) {
+    throw new Error('Invalid input: players must be an array')
+  }
+
   const counts: RosterCountsMap = {}
 
   // Initialize positions
-  const positions = ['QB', 'RB', 'WR', 'TE']
+  const positions = ['QB', 'RB', 'WR', 'TE'] as const
   for (const pos of positions) {
     counts[pos] = { starters: 0, bench: 0 }
   }
 
-  // Count players
+  // Count players with validation
   for (const player of players) {
-    const pos = player.position
+    if (!player || typeof player.position !== 'string' || typeof player.isStarter !== 'boolean') {
+      console.warn('Invalid player data:', player)
+      continue
+    }
+
+    const pos = player.position as keyof RosterCountsMap
     if (!counts[pos]) {
-      counts[pos] = { starters: 0, bench: 0 }
+      // Handle unknown positions gracefully
+      console.warn(`Unknown position: ${player.position}`)
+      continue
     }
 
     if (player.isStarter) {

@@ -172,6 +172,9 @@ export async function enrichTransactionPlayers(
   adds: Array<{ playerId: string; name: string; position: string; age: number | null }>
   drops: Array<{ playerId: string; name: string; position: string; age: number | null }>
 }> {
+  if (!transaction) {
+    throw new Error('Invalid transaction: transaction is required')
+  }
   const players = await getAllPlayers()
 
   const adds = transaction.adds
@@ -216,9 +219,23 @@ export async function getEnrichedRoster(roster: SleeperRoster): Promise<{
     isStarter: boolean
   }>
 }> {
+  if (!roster || !roster.players) {
+    throw new Error('Invalid roster: roster with players array is required')
+  }
   const allPlayers = await getAllPlayers()
 
-  const players = (roster.players || []).map((playerId) => {
+  const players = roster.players.map((playerId) => {
+    if (!playerId || typeof playerId !== 'string') {
+      console.warn('Invalid playerId in roster:', playerId)
+      return {
+        playerId: 'unknown',
+        name: 'Unknown Player',
+        position: 'UNKNOWN',
+        age: null,
+        isStarter: false,
+      }
+    }
+
     const player = allPlayers[playerId]
     return {
       playerId,

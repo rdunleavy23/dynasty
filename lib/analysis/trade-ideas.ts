@@ -31,6 +31,9 @@ export async function generateTradeIdeas(
   myTeamId: string,
   leagueId: string
 ): Promise<TradeIdea[]> {
+  if (!myTeamId || !leagueId) {
+    throw new Error('Invalid input: myTeamId and leagueId are required')
+  }
   // Get my team with profiles
   const myTeam = await prisma.leagueTeam.findUnique({
     where: { id: myTeamId },
@@ -78,7 +81,7 @@ export async function generateTradeIdeas(
 
   // For each other team, find complementary matches
   for (const otherTeam of otherTeams) {
-    if (!otherTeam.positionalProfile) continue
+    if (!otherTeam.positionalProfile || !otherTeam.positionalProfile.positionalNeeds) continue
 
     const theirNeeds = otherTeam.positionalProfile.positionalNeeds as Record<
       string,
@@ -128,11 +131,19 @@ export async function generateTradeIdeas(
     }
   }
 
-  // Sort by confidence (highest first)
-  ideas.sort((a, b) => b.confidence - a.confidence)
+  // Sort by confidence (highest first) and filter out invalid ideas
+  const validIdeas = ideas.filter(idea =>
+    idea.confidence > 0 &&
+    idea.targetTeamId &&
+    idea.targetTeamName &&
+    idea.suggestedGivePosition &&
+    idea.suggestedGetPosition
+  )
+
+  validIdeas.sort((a, b) => b.confidence - a.confidence)
 
   // Return top 10
-  return ideas.slice(0, 10)
+  return validIdeas.slice(0, 10)
 }
 
 /**

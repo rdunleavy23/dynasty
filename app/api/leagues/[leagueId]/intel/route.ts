@@ -161,6 +161,17 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json(response)
   } catch (error) {
     console.error('[API] Error fetching league intel:', error)
+
+    // Handle specific error types
+    if (error instanceof Error) {
+      if (error.message.includes('League not found')) {
+        return NextResponse.json(
+          { error: 'League not found', message: 'This league may have been deleted or you may not have access' },
+          { status: 404 }
+        )
+      }
+    }
+
     return NextResponse.json(
       { error: 'Failed to fetch league intel', details: (error as Error).message },
       { status: 500 }
