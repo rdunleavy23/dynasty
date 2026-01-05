@@ -97,15 +97,17 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
         const addsByPos = summary.addsByPosition as Record<string, number>
 
         // Check for position-specific activity
-        for (const [position, count] of Object.entries(addsByPos)) {
-          if (count >= 3) {
-            feed.push({
-              teamId: team.id,
-              teamName: team.teamName || team.displayName,
-              message: `Added ${count} ${position}s in the last 30 days → likely ${position} desperate`,
-              timestamp: new Date(),
-              category: 'waiver',
-            })
+        if (addsByPos && typeof addsByPos === 'object' && !Array.isArray(addsByPos)) {
+          for (const [position, count] of Object.entries(addsByPos)) {
+            if (typeof count === 'number' && count >= 3) {
+              feed.push({
+                teamId: team.id,
+                teamName: team.teamName || team.displayName,
+                message: `Added ${count} ${position}s in the last 30 days → likely ${position} desperate`,
+                timestamp: new Date(),
+                category: 'waiver',
+              })
+            }
           }
         }
       }
@@ -130,17 +132,21 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
     )
     const avgMovesPerTeam = league.teams.length > 0 ? totalMoves / league.teams.length : 0
 
-    const mostActiveTeam = league.teams.reduce((max, team) => {
-      const moves = (team.waiverSummary?.last30dAdds || 0) + (team.waiverSummary?.last30dDrops || 0)
-      const maxMoves = (max.waiverSummary?.last30dAdds || 0) + (max.waiverSummary?.last30dDrops || 0)
-      return moves > maxMoves ? team : max
-    }, league.teams[0])
+    const mostActiveTeam = league.teams.length > 0
+      ? league.teams.reduce((max, team) => {
+          const moves = (team.waiverSummary?.last30dAdds || 0) + (team.waiverSummary?.last30dDrops || 0)
+          const maxMoves = (max.waiverSummary?.last30dAdds || 0) + (max.waiverSummary?.last30dDrops || 0)
+          return moves > maxMoves ? team : max
+        }, league.teams[0])
+      : null
 
-    const mostInactiveTeam = league.teams.reduce((max, team) => {
-      const days1 = daysSince(team.lastActivityAt) || 0
-      const days2 = daysSince(max.lastActivityAt) || 0
-      return days1 > days2 ? team : max
-    }, league.teams[0])
+    const mostInactiveTeam = league.teams.length > 0
+      ? league.teams.reduce((max, team) => {
+          const days1 = daysSince(team.lastActivityAt) || 0
+          const days2 = daysSince(max.lastActivityAt) || 0
+          return days1 > days2 ? team : max
+        }, league.teams[0])
+      : null
 
     const response: LeagueIntelResponse = {
       league: {
