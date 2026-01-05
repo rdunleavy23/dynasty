@@ -27,7 +27,7 @@ export async function recomputeTeamWaiverSummary(teamId: string): Promise<void> 
       waiverTransactions: {
         where: {
           transactionDate: {
-            gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Last 30 days
+            gte: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000), // Last 180 days (6 months)
           },
         },
         orderBy: { transactionDate: 'desc' },
@@ -187,20 +187,43 @@ export async function recomputeTeamStrategy(teamId: string): Promise<void> {
     where: { id: teamId },
     include: {
       waiverSummary: true,
+      league: true,
     },
   })
 
   if (!team) throw new Error(`Team ${teamId} not found`)
 
+  // Check if league is pre-draft AND has no transaction history (new league, not dynasty)
+  if (team.league.status === 'pre_draft') {
+    const transactionCount = await prisma.waiverTransaction.count({
+      where: { teamId: team.id }
+    })
+    
+    if (transactionCount === 0) {
+      // New league with no history
+      await prisma.leagueTeam.update({
+        where: { id: teamId },
+        data: {
+          strategyLabel: 'PENDING',
+          strategyConfidence: 1.0,
+          notes: 'League is in pre-draft status. Check back after the draft!',
+          updatedAt: new Date(),
+        },
+      })
+      return
+    }
+  }
+
   const summary = team.waiverSummary
 
-  // Build signals
+  // Build signals (using 180-day window for dynasty leagues)
+  // For pre-draft leagues, ignore daysSinceLastActivity (offseason is expected)
   const signals: StrategySignals = {
     totalMoves30d: summary ? summary.last30dAdds + summary.last30dDrops : 0,
     avgAgeAdded30d: summary?.avgPlayerAgeAdded ?? null,
     avgAgeDropped30d: summary?.avgPlayerAgeDropped ?? null,
     rosterAvgAge: null, // TODO: Could compute from roster if needed
-    daysSinceLastActivity: daysSince(team.lastActivityAt),
+    daysSinceLastActivity: team.league.status === 'pre_draft' ? null : daysSince(team.lastActivityAt),
   }
 
   // Classify

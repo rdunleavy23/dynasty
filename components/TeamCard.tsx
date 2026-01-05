@@ -21,6 +21,38 @@ interface TeamCardProps {
   onClick?: () => void
 }
 
+function getPositionStateDescription(state: string): string {
+  switch (state) {
+    case 'DESPERATE':
+      return 'Actively seeking players at this position'
+    case 'THIN':
+      return 'Could use depth at this position'
+    case 'STABLE':
+      return 'Good depth at this position'
+    case 'HOARDING':
+      return 'Stacked at this position, likely trading'
+    default:
+      return ''
+  }
+}
+
+function getStrategyDescription(strategy: string): string {
+  switch (strategy) {
+    case 'REBUILD':
+      return 'Targeting young players & future picks - building for the future'
+    case 'CONTEND':
+      return 'Adding veterans & proven players - pushing for a championship'
+    case 'TINKER':
+      return 'High activity without clear direction - exploring options'
+    case 'INACTIVE':
+      return 'Little to no recent activity - may be checked out'
+    case 'PENDING':
+      return 'League is pre-draft - strategy will be determined after draft and season begins'
+    default:
+      return ''
+  }
+}
+
 export function TeamCard({ team, onClick }: TeamCardProps) {
   const displayName = team.teamName || team.displayName
   const hasRecentActivity = team.daysSinceActivity !== null && team.daysSinceActivity < 7
@@ -44,7 +76,8 @@ export function TeamCard({ team, onClick }: TeamCardProps) {
         {/* Strategy Badge */}
         {team.strategyLabel && (
           <div
-            className={`ml-3 px-3 py-1.5 rounded-lg text-xs font-medium border flex items-center gap-1.5 whitespace-nowrap ${getStrategyColor(team.strategyLabel)}`}
+            className={`ml-3 px-3 py-1.5 rounded-lg text-xs font-medium border flex items-center gap-1.5 whitespace-nowrap ${getStrategyColor(team.strategyLabel)} cursor-help`}
+            title={getStrategyDescription(team.strategyLabel)}
           >
             <span className="text-base leading-none">{getStrategyEmoji(team.strategyLabel)}</span>
             <span className="font-semibold">{team.strategyLabel}</span>
@@ -86,7 +119,8 @@ export function TeamCard({ team, onClick }: TeamCardProps) {
           {Object.entries(team.positionalNeeds).map(([position, state]) => (
             <div
               key={position}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium border flex items-center gap-1 ${getPositionalStateColor(state)}`}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium border flex items-center gap-1 ${getPositionalStateColor(state)} cursor-help`}
+              title={`${position}: ${state} - ${getPositionStateDescription(state)}`}
             >
               <span className="text-sm leading-none">{getPositionalStateEmoji(state)}</span>
               <span className="font-semibold">{position}</span>

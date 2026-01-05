@@ -82,6 +82,32 @@ export async function getLeague(leagueId: string): Promise<SleeperLeague> {
 }
 
 /**
+ * Get all previous league IDs for dynasty leagues
+ * Follows the previous_league_id chain backwards
+ */
+export async function getPreviousLeagueIds(leagueId: string, maxDepth = 3): Promise<string[]> {
+  const previousLeagueIds: string[] = []
+  let currentLeagueId: string | null = leagueId
+  
+  for (let i = 0; i < maxDepth; i++) {
+    try {
+      const league = await getLeague(currentLeagueId)
+      if (league.previous_league_id) {
+        previousLeagueIds.push(league.previous_league_id)
+        currentLeagueId = league.previous_league_id
+      } else {
+        break
+      }
+    } catch (error) {
+      console.warn(`Failed to fetch previous league: ${currentLeagueId}`, error)
+      break
+    }
+  }
+  
+  return previousLeagueIds
+}
+
+/**
  * Get all users in a league
  */
 export async function getLeagueUsers(leagueId: string): Promise<SleeperUser[]> {

@@ -20,7 +20,6 @@ interface PageProps {
 
 async function getUserLeaguesData(username: string) {
   // #region agent log
-  const logPath = '/Users/ryan/Desktop/dynasty-claude-league-intel-setup-qtTJi/.cursor/debug.log'
   const logDebug = async (location: string, message: string, data: any) => {
     try {
       const logEntry = JSON.stringify({
@@ -30,103 +29,87 @@ async function getUserLeaguesData(username: string) {
         timestamp: Date.now(),
         sessionId: 'debug-session',
         runId: 'run1',
-        hypothesisId: 'A'
+        hypothesisId: 'A',
       }) + '\n'
       await fetch('http://127.0.0.1:7243/ingest/65e35794-301a-4f72-96d1-008e0ed53161', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: logEntry
+        body: logEntry,
       }).catch(() => {})
     } catch {}
   }
   // #endregion
-  
+
+  let user: Awaited<ReturnType<typeof getUserByUsername>> = null
+  let sleeperLeagues: Awaited<ReturnType<typeof getUserLeagues>> = []
+  let dbLeagues: Array<any> = []
+
   try {
-    // #region agent log
     await logDebug('app/local/user/[username]/page.tsx:21', 'getUserLeaguesData entry', { username, rawUsername: username })
-    // #endregion
-    
-    // Decode the username from URL (in case it was encoded)
+
     const decodedUsername = decodeURIComponent(username).trim()
-    
-    // #region agent log
     await logDebug('app/local/user/[username]/page.tsx:25', 'decoded username', { decodedUsername })
-    // #endregion
-    
-    // First, get user by username from Sleeper API
-    const user = await getUserByUsername(decodedUsername)
-    
-    // #region agent log
+
+    user = await getUserByUsername(decodedUsername)
     await logDebug('app/local/user/[username]/page.tsx:28', 'after getUserByUsername', { userFound: !!user, userId: user?.user_id, username: user?.username })
-    // #endregion
-    
+
     if (!user) {
       console.error('[getUserLeaguesData] User not found for username:', decodedUsername)
-      // #region agent log
       await logDebug('app/local/user/[username]/page.tsx:31', 'user not found, returning empty', { decodedUsername })
-      // #endregion
       return { user: null, sleeperLeagues: [], dbLeagues: [] }
     }
-    
-    console.log('[getUserLeaguesData] Found user:', user.user_id, user.username)
 
-    // Get leagues from Sleeper API
-    // #region agent log
     await logDebug('app/local/user/[username]/page.tsx:36', 'calling getUserLeagues', { userId: user.user_id })
-    // #endregion
-    
-    const sleeperLeagues = await getUserLeagues(user.user_id)
-    
-    // #region agent log
+    sleeperLeagues = await getUserLeagues(user.user_id)
     await logDebug('app/local/user/[username]/page.tsx:38', 'after getUserLeagues', { leaguesCount: sleeperLeagues?.length || 0, leagues: sleeperLeagues?.slice(0, 2) })
-    // #endregion
 
-    // Also check database for leagues where this user is a team owner
-    // #region agent log
-    await logDebug('app/local/user/[username]/page.tsx:40', 'querying database', { userId: user.user_id })
-    // #endregion
-    
-    const dbLeagues = await prisma.league.findMany({
-      where: {
-        teams: {
-          some: {
-            sleeperOwnerId: user.user_id,
+    try {
+      await logDebug('app/local/user/[username]/page.tsx:40', 'querying database', { userId: user.user_id })
+      dbLeagues = await prisma.league.findMany({
+        where: {
+          teams: {
+            some: {
+              sleeperOwnerId: user.user_id,
+            },
           },
         },
-      },
-      select: {
-        id: true,
-        sleeperLeagueId: true,
-        name: true,
-        season: true,
-        lastSyncAt: true,
-        _count: {
-          select: { teams: true },
+        select: {
+          id: true,
+          sleeperLeagueId: true,
+          name: true,
+          season: true,
+          lastSyncAt: true,
+          _count: {
+            select: { teams: true },
+          },
         },
-      },
-      orderBy: { season: 'desc' },
+        orderBy: { season: 'desc' },
+      })
+      await logDebug('app/local/user/[username]/page.tsx:58', 'after database query', { dbLeaguesCount: dbLeagues?.length || 0 })
+    } catch (dbError) {
+      console.error('DB error fetching user leagues:', dbError)
+      await logDebug('app/local/user/[username]/page.tsx:56', 'db query failed', {
+        errorMessage: dbError instanceof Error ? dbError.message : String(dbError),
+        errorName: dbError instanceof Error ? dbError.name : undefined,
+      })
+      dbLeagues = []
+    }
+
+    await logDebug('app/local/user/[username]/page.tsx:60', 'returning data', {
+      hasUser: !!user,
+      sleeperLeaguesCount: sleeperLeagues?.length || 0,
+      dbLeaguesCount: dbLeagues?.length || 0,
     })
-    
-    // #region agent log
-    await logDebug('app/local/user/[username]/page.tsx:58', 'after database query', { dbLeaguesCount: dbLeagues?.length || 0 })
-    await logDebug('app/local/user/[username]/page.tsx:60', 'returning data', { 
-      hasUser: !!user, 
-      sleeperLeaguesCount: sleeperLeagues?.length || 0, 
-      dbLeaguesCount: dbLeagues?.length || 0 
-    })
-    // #endregion
 
     return { user, sleeperLeagues, dbLeagues }
   } catch (error) {
-    // #region agent log
-    await logDebug('app/local/user/[username]/page.tsx:63', 'error caught', { 
+    await logDebug('app/local/user/[username]/page.tsx:63', 'error caught', {
       errorMessage: error instanceof Error ? error.message : String(error),
       errorName: error instanceof Error ? error.name : undefined,
-      errorStack: error instanceof Error ? error.stack : undefined
+      errorStack: error instanceof Error ? error.stack : undefined,
     })
-    // #endregion
     console.error('Error fetching user leagues:', error)
-    return { user: null, sleeperLeagues: [], dbLeagues: [] }
+    return { user, sleeperLeagues, dbLeagues }
   }
 }
 
@@ -171,18 +154,19 @@ export default async function LocalUserLeaguesPage({ params }: PageProps) {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-md border border-red-200 p-12 text-center max-w-md">
-          <div className="w-16 h-16 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4">
-            <AlertCircle className="w-8 h-8" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">User Not Found</h2>
-          <p className="text-gray-600 mb-4">
-            Sleeper username <code className="bg-gray-100 px-2 py-1 rounded text-sm">{decodeURIComponent(username)}</code> not found.
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="bg-white rounded-lg shadow-md border border-orange-200 p-12 text-center max-w-md">
+          <div className="text-6xl mb-4">🤔</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Hmm, we couldn't find that username</h2>
+          <p className="text-gray-600 mb-2">
+            We searched high and low for <code className="bg-gray-100 px-2 py-1 rounded text-sm font-semibold">{decodeURIComponent(username)}</code>, but came up empty.
+          </p>
+          <p className="text-sm text-gray-500 mb-6">
+            Double-check for typos, or make sure this username exists on Sleeper.
           </p>
           <Link
             href="/local"
-            className="inline-block px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+            className="inline-block px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium"
           >
             ← Try Another Username
           </Link>
@@ -213,16 +197,17 @@ export default async function LocalUserLeaguesPage({ params }: PageProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                {user.display_name || user.username}
-              </h1>
-              <p className="text-gray-600 mt-1">Sleeper Username: @{user.username}</p>
-              <p className="text-sm text-blue-600 mt-2 font-mono">Local Page - User: {username}</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-                LOCAL MODE
+              <div className="flex items-center gap-3 mb-2">
+                <h1 className="text-3xl font-bold text-gray-900">
+                  {user.display_name || user.username}
+                </h1>
+                {leaguesWithDbInfo.length > 0 && (
+                  <span className="text-sm text-green-600 font-medium">
+                    🎯 {leaguesWithDbInfo.length} {leaguesWithDbInfo.length === 1 ? 'league' : 'leagues'}
+                  </span>
+                )}
               </div>
+              <p className="text-gray-600">@{user.username} on Sleeper</p>
             </div>
           </div>
         </div>
@@ -230,12 +215,29 @@ export default async function LocalUserLeaguesPage({ params }: PageProps) {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Info Banner */}
+        <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl">👋</span>
+            <div>
+              <p className="text-sm font-semibold text-blue-900 mb-1">
+                Welcome! Here are your {leaguesWithDbInfo.length} {leaguesWithDbInfo.length === 1 ? 'league' : 'leagues'}
+              </p>
+              <p className="text-sm text-blue-800">
+                Click any league to see a preview with sample data. You'll be able to track it for real insights.
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Leagues ({leaguesWithDbInfo.length})
+            Your Leagues
           </h2>
           <p className="text-gray-600">
-            Select a league to view analysis. Leagues already in the database are marked with a checkmark.
+            {leaguesWithDbInfo.some(l => l.inDatabase) 
+              ? '✓ synced leagues have real data • others show preview mode'
+              : 'Click any league to see a preview'}
           </p>
         </div>
 
@@ -317,11 +319,11 @@ export default async function LocalUserLeaguesPage({ params }: PageProps) {
                 ) : (
                   <div className="mt-4 pt-4 border-t border-gray-100">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Not in database</span>
+                      <span className="text-gray-600">Preview available</span>
                       <ExternalLink className="w-4 h-4 text-gray-400" />
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
-                      Will show demo data or prompt to add
+                      Click to see preview, then track for real intel
                     </p>
                   </div>
                 )}

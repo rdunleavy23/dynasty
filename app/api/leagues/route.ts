@@ -43,14 +43,28 @@ export async function POST(req: NextRequest) {
       getLeagueRosters(sleeperLeagueId),
     ])
 
-    // Create league (no ownerUserId required)
+    // Create anonymous user if doesn't exist (for local/unauthenticated access)
+    let anonymousUser = await prisma.user.findUnique({
+      where: { email: 'anonymous@local.dev' },
+    })
+
+    if (!anonymousUser) {
+      anonymousUser = await prisma.user.create({
+        data: {
+          email: 'anonymous@local.dev',
+        },
+      })
+    }
+
+    // Create league
     const league = await prisma.league.create({
       data: {
         sleeperLeagueId,
         name: sleeperLeague.name,
         season: parseInt(sleeperLeague.season),
+        status: sleeperLeague.status, // pre_draft, in_season, post_season, complete
         platform: 'SLEEPER',
-        ownerUserId: 'anonymous', // Placeholder since schema requires it
+        ownerUserId: anonymousUser.id,
       },
     })
 

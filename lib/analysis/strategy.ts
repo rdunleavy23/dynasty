@@ -33,19 +33,30 @@ export function classifyTeamStrategy(signals: StrategySignals): StrategyClassifi
   } = signals
 
   // INACTIVE check (highest priority)
-  if (daysSinceLastActivity !== null && daysSinceLastActivity >= 21) {
+  // For pre-draft/offseason leagues, focus on transaction volume, not recency
+  // (It's normal to have no activity during offseason)
+  if (totalMoves30d === 0) {
+    // No transactions in the analysis window (last 6 months of SEASON play)
+    if (daysSinceLastActivity !== null && daysSinceLastActivity >= 180) {
+      return {
+        label: 'INACTIVE' as StrategyLabel,
+        confidence: 0.9,
+        reason: 'No activity in over 6 months – likely checked out or abandoned team.',
+      }
+    }
     return {
       label: 'INACTIVE' as StrategyLabel,
-      confidence: Math.min(0.7 + (daysSinceLastActivity - 21) * 0.01, 0.99),
-      reason: `No activity in ${daysSinceLastActivity} days – likely checked out or abandoned team.`,
+      confidence: 0.7,
+      reason: 'Zero moves in recent season play – minimal engagement.',
     }
   }
 
-  if (totalMoves30d === 0) {
+  // Very low activity check
+  if (totalMoves30d <= 2 && daysSinceLastActivity !== null && daysSinceLastActivity >= 240) {
     return {
       label: 'INACTIVE' as StrategyLabel,
       confidence: 0.8,
-      reason: 'Zero moves in the last 30 days – minimal engagement.',
+      reason: `Minimal activity (${totalMoves30d} moves) and ${Math.floor(daysSinceLastActivity / 30)} months since last transaction.`,
     }
   }
 
@@ -142,6 +153,8 @@ export function getStrategyEmoji(label: StrategyLabel | null): string {
       return '🔧'
     case 'INACTIVE':
       return '💤'
+    case 'PENDING':
+      return '⏳'
     default:
       return '❓'
   }
@@ -160,6 +173,8 @@ export function getStrategyColor(label: StrategyLabel | null): string {
       return 'bg-tinker-50 text-tinker-700 border-tinker-100'
     case 'INACTIVE':
       return 'bg-inactive-50 text-inactive-600 border-inactive-100'
+    case 'PENDING':
+      return 'bg-blue-50 text-blue-600 border-blue-100'
     default:
       return 'bg-gray-50 text-gray-500 border-gray-200'
   }

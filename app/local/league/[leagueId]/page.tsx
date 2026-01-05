@@ -8,6 +8,7 @@
 import { prisma } from '@/lib/db'
 import { TeamCard } from '@/components/TeamCard'
 import { IntelFeed } from '@/components/IntelFeed'
+import { TrackLeagueButton } from '@/components/TrackLeagueButton'
 import { daysSince } from '@/lib/analysis/strategy'
 import type { LeagueIntelResponse, TeamCard as TeamCardType, IntelFeedItem, PositionalNeedsMap, StrategyLabel } from '@/types'
 
@@ -120,6 +121,7 @@ async function getLeagueIntelDirect(leagueId: string): Promise<LeagueIntelRespon
     }
   }
   
+  let league = null
   try {
     // Fetch league with all related data directly from database
     // Try by sleeperLeagueId first (for external IDs), then by internal id
@@ -140,31 +142,39 @@ async function getLeagueIntelDirect(leagueId: string): Promise<LeagueIntelRespon
       },
     })
     
-    const league = await Promise.race([
+    league = await Promise.race([
       leagueQuery,
       new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Prisma query timeout after 10s')), 10000))
     ]) as Awaited<typeof leagueQuery>
-    
-    // If not in database, try fetching from Sleeper API to show basic info
-    if (!league) {
-      try {
-        const { getLeague } = await import('@/lib/sleeper')
-        const sleeperLeague = await getLeague(leagueId)
-        // Return demo data with real league name from Sleeper
-        return {
-          ...getDemoLeagueIntel(leagueId),
-          league: {
-            id: 'sleeper-' + leagueId,
-            name: sleeperLeague.name,
-            season: parseInt(sleeperLeague.season),
-            lastSyncAt: null,
-          },
-        }
-      } catch {
-        // Sleeper API also failed, return null
-        return null
+  } catch (dbError) {
+    console.warn('[getLeagueIntelDirect] Database error, will try Sleeper API:', dbError instanceof Error ? dbError.message : String(dbError))
+    // Database failed, league will remain null and we'll try Sleeper API below
+  }
+  
+  // If not in database or database failed, try fetching from Sleeper API to show basic info
+  if (!league) {
+    try {
+      const { getLeague } = await import('@/lib/sleeper')
+      const sleeperLeague = await getLeague(leagueId)
+      // Return demo data with real league name from Sleeper
+      return {
+        ...getDemoLeagueIntel(leagueId),
+        league: {
+          id: 'sleeper-' + leagueId,
+          name: sleeperLeague.name,
+          season: parseInt(sleeperLeague.season),
+          lastSyncAt: null,
+        },
       }
+    } catch (sleeperError) {
+      console.error('[getLeagueIntelDirect] Sleeper API also failed:', sleeperError)
+      // Sleeper API also failed, return null
+      return null
     }
+  }
+  
+  // We have league data from database, continue processing
+  try {
 
     // Build team cards
     const teamCards: TeamCardType[] = league.teams.map((team) => {
@@ -284,18 +294,9 @@ async function getLeagueIntelDirect(leagueId: string): Promise<LeagueIntelRespon
 
     return response
   } catch (error) {
-    console.error('Error fetching league intel directly:', error)
-    
-    // If database error and no DATABASE_URL, fall back to demo data
-    if (error instanceof Error && error.message.includes('DATABASE_URL') && !process.env.DATABASE_URL) {
-      return getDemoLeagueIntel(leagueId)
-    }
-    
-    // Check if it's a database connection error (but DATABASE_URL is set)
-    if (error instanceof Error && error.message.includes('DATABASE_URL')) {
-      throw new Error('DATABASE_URL environment variable is not set. Please configure your database connection.')
-    }
-    
+    console.error('Error processing league data from database:', error)
+    // If we got here, database had data but processing failed
+    // This is unexpected, so return null
     return null
   }
 }
@@ -322,8 +323,35 @@ export default async function LocalLeagueAnalysisPage({ params }: PageProps) {
     return <LeagueNotAvailable leagueId={leagueId} />
   }
 
+  const isDemo = !intel.league.lastSyncAt
+
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Demo Mode Banner */}
+      {isDemo && (
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🎭</span>
+                <div>
+                  <p className="text-sm font-semibold text-amber-900">
+                    Preview Mode – Sample Data
+                  </p>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    This is a preview with demo teams. Track this league to see real intel!
+                  </p>
+                </div>
+              </div>
+              <TrackLeagueButton 
+                sleeperLeagueId={leagueId} 
+                leagueName={intel.league.name}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -331,12 +359,13 @@ export default async function LocalLeagueAnalysisPage({ params }: PageProps) {
             <div>
               <h1 className="text-3xl font-bold text-gray-900">{intel.league.name}</h1>
               <p className="text-gray-600 mt-1">{intel.league.season} Season</p>
-              <p className="text-sm text-blue-600 mt-2 font-mono">Local Page - League ID: {leagueId}</p>
             </div>
             <div className="flex items-center gap-3">
-              <div className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-                LOCAL MODE
-              </div>
+              {!isDemo && (
+                <div className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                  ✓ Synced
+                </div>
+              )}
             </div>
           </div>
 
@@ -441,39 +470,36 @@ function DatabaseError({ leagueId, errorMessage }: { leagueId: string; errorMess
 
 function LeagueNotAvailable({ leagueId }: { leagueId: string }) {
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="bg-white rounded-lg shadow-md border border-gray-200 p-12 text-center max-w-md">
-        <div className="w-16 h-16 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4">
-          <svg
-            className="w-8 h-8"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-            />
-          </svg>
-        </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">League Not Available</h2>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="bg-white rounded-lg shadow-md border border-orange-200 p-12 text-center max-w-md">
+        <div className="text-6xl mb-4">🔍</div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">This league's playing hard to get</h2>
         <p className="text-gray-600 mb-4">
-          Unable to load analysis for league ID: <code className="bg-gray-100 px-2 py-1 rounded text-sm">{leagueId}</code>
+          We couldn't load intel for league <code className="bg-gray-100 px-2 py-1 rounded text-sm font-mono">{leagueId}</code>
         </p>
-        <p className="text-sm text-gray-500 mb-6">
-          This could be due to:
-        </p>
-        <ul className="text-sm text-gray-500 text-left mb-6 space-y-1">
-          <li>• League not synced yet</li>
-          <li>• League not found in database</li>
-          <li>• Database connection issues</li>
-          <li>• Invalid league ID</li>
-        </ul>
-        <div className="text-xs text-gray-400 font-mono">
-          Local URL: /local/league/{leagueId}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left mb-6">
+          <p className="text-sm font-semibold text-blue-900 mb-2">This might be because:</p>
+          <ul className="text-sm text-blue-800 space-y-1">
+            <li>• The league hasn't been synced yet (try the Track button above)</li>
+            <li>• The league ID is incorrect</li>
+            <li>• The league is private on Sleeper</li>
+          </ul>
+        </div>
+        <div className="flex gap-3">
+          <a
+            href="/local"
+            className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+          >
+            ← Try Another League
+          </a>
+          <a
+            href={`https://sleeper.com/leagues/${leagueId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium"
+          >
+            View on Sleeper →
+          </a>
         </div>
       </div>
     </div>

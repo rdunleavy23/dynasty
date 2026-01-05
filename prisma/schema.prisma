@@ -72,6 +72,7 @@ model League {
   sleeperLeagueId  String   @unique
   name             String
   season           Int
+  status           String?  // League status: pre_draft, in_season, post_season, complete
   platform         String   @default("SLEEPER") // Platform enum: SLEEPER, MFL, ESPN
   ownerUserId      String
   lastSyncAt       DateTime?

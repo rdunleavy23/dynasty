@@ -4,7 +4,7 @@
 
 // Enum types (stored as String in SQLite, but typed as enums for TypeScript)
 export type Platform = 'SLEEPER' | 'MFL' | 'ESPN'
-export type StrategyLabel = 'REBUILD' | 'CONTEND' | 'TINKER' | 'INACTIVE'
+export type StrategyLabel = 'REBUILD' | 'CONTEND' | 'TINKER' | 'INACTIVE' | 'PENDING'
 export type TransactionType = 'ADD' | 'DROP'
 export type ActivityTrend = 'INCREASING' | 'DECREASING' | 'STABLE'
 
@@ -15,6 +15,7 @@ export interface SleeperLeague {
   season: string
   sport: string
   status: string
+  previous_league_id?: string | null  // For dynasty leagues
   settings: {
     num_teams: number
     playoff_week_start?: number

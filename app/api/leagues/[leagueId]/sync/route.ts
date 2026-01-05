@@ -11,7 +11,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import {
+  getLeague,
   getLeagueTransactionsRange,
+  getPreviousLeagueIds,
   getNFLState,
   enrichTransactionPlayers,
 } from '@/lib/sleeper'
@@ -37,21 +39,53 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: 'League not found' }, { status: 404 })
     }
 
-    // Get current NFL week
-    const nflState = await getNFLState()
-    const currentWeek = nflState.week
+    // Fetch Sleeper league metadata to check for dynasty continuity
+    const sleeperLeague = await getLeague(league.sleeperLeagueId)
+    
+    // Determine which league(s) to fetch transactions from
+    let leaguesToSync: Array<{ leagueId: string; season: string }> = []
+    
+    if (league.status === 'pre_draft' && sleeperLeague.previous_league_id) {
+      // Dynasty league in pre-draft: fetch from previous season(s)
+      console.log(`[Sync] Dynasty league ${league.name} is pre-draft, fetching from previous seasons`)
+      const previousLeagueIds = await getPreviousLeagueIds(league.sleeperLeagueId, 2) // Last 2 seasons
+      
+      for (const prevLeagueId of previousLeagueIds) {
+        const prevLeague = await getLeague(prevLeagueId)
+        leaguesToSync.push({ leagueId: prevLeagueId, season: prevLeague.season })
+      }
+    } else if (league.status !== 'pre_draft') {
+      // Active league: fetch from current season
+      leaguesToSync.push({ leagueId: league.sleeperLeagueId, season: sleeperLeague.season })
+    } else {
+      // Pre-draft, non-dynasty league: no transactions to sync
+      console.log(`[Sync] League ${league.name} is pre-draft (not dynasty), skipping transaction sync`)
+      await analyzeLeague(leagueId)
+      await prisma.league.update({
+        where: { id: leagueId },
+        data: { lastSyncAt: new Date() },
+      })
+      return NextResponse.json({
+        success: true,
+        stats: { transactionsProcessed: 0, recordsAdded: 0, teamsUpdated: 0 },
+        message: 'League is pre-draft. No transactions to sync yet.',
+      })
+    }
 
-    // Fetch transactions for last 8 weeks (or from week 1 if early in season)
-    const startWeek = Math.max(1, currentWeek - 8)
-    const endWeek = currentWeek
+    // Fetch transactions from all relevant leagues
+    let allTransactions: any[] = []
+    
+    for (const { leagueId: syncLeagueId, season } of leaguesToSync) {
+      console.log(`[Sync] Fetching transactions from ${season} season (${syncLeagueId})`)
+      
+      // Fetch all 18 weeks for historical data
+      const transactions = await getLeagueTransactionsRange(syncLeagueId, 1, 18)
+      allTransactions.push(...transactions)
+    }
 
-    console.log(`[Sync] Fetching transactions for ${league.name} (weeks ${startWeek}-${endWeek})`)
-
-    const transactions = await getLeagueTransactionsRange(
-      league.sleeperLeagueId,
-      startWeek,
-      endWeek
-    )
+    console.log(`[Sync] Found ${allTransactions.length} total transactions across all seasons`)
+    const transactions = allTransactions
+    const currentWeek = 1 // Placeholder for week number
 
     // Filter for waiver and free agent transactions
     const relevantTransactions = transactions.filter(
@@ -60,10 +94,29 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
 
     console.log(`[Sync] Found ${relevantTransactions.length} waiver/FA transactions`)
 
-    // Map roster IDs to team IDs
+    // Map roster IDs to team IDs for current season
     const rosterTeamMap = new Map(
       league.teams.map((t) => [t.sleeperRosterId, t])
     )
+    
+    // Also map by owner ID for historical transactions (dynasty continuity)
+    const ownerTeamMap = new Map(
+      league.teams.map((t) => [t.sleeperOwnerId, t])
+    )
+    
+    // Build roster ID -> owner ID map for historical leagues
+    const rosterOwnerMap = new Map<number, string>()
+    for (const { leagueId: syncLeagueId } of leaguesToSync) {
+      try {
+        const { getLeagueRosters } = await import('@/lib/sleeper')
+        const rosters = await getLeagueRosters(syncLeagueId)
+        rosters.forEach(r => {
+          rosterOwnerMap.set(r.roster_id, r.owner_id)
+        })
+      } catch (error) {
+        console.warn(`Failed to fetch rosters for ${syncLeagueId}:`, error)
+      }
+    }
 
     let addedCount = 0
     let updatedActivityCount = 0
@@ -77,7 +130,14 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
         const rosterId = txn.adds?.[add.playerId]
         if (!rosterId) continue
 
-        const team = rosterTeamMap.get(rosterId)
+        // Try to find team by roster ID first, then by owner ID for historical transactions
+        let team = rosterTeamMap.get(rosterId)
+        if (!team) {
+          const ownerId = rosterOwnerMap.get(rosterId)
+          if (ownerId) {
+            team = ownerTeamMap.get(ownerId)
+          }
+        }
         if (!team) continue
 
         // Upsert transaction
@@ -119,7 +179,14 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
         const rosterId = txn.drops?.[drop.playerId]
         if (!rosterId) continue
 
-        const team = rosterTeamMap.get(rosterId)
+        // Try to find team by roster ID first, then by owner ID for historical transactions
+        let team = rosterTeamMap.get(rosterId)
+        if (!team) {
+          const ownerId = rosterOwnerMap.get(rosterId)
+          if (ownerId) {
+            team = ownerTeamMap.get(ownerId)
+          }
+        }
         if (!team) continue
 
         await prisma.waiverTransaction.upsert({

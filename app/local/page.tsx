@@ -8,7 +8,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, User, Hash } from 'lucide-react'
+import { Search, User, Hash, HelpCircle, ExternalLink } from 'lucide-react'
 
 export default function LocalAnalysisPage() {
   const router = useRouter()
@@ -16,6 +16,7 @@ export default function LocalAnalysisPage() {
   const [leagueId, setLeagueId] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [mode, setMode] = useState<'username' | 'league'>('username')
+  const [showHelp, setShowHelp] = useState(false)
 
   const handleUsernameSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,10 +42,13 @@ export default function LocalAnalysisPage() {
             {mode === 'username' ? <User className="w-8 h-8" /> : <Hash className="w-8 h-8" />}
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">League Intel</h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 mb-1">
             {mode === 'username' 
-              ? 'Enter your Sleeper username to view your leagues'
-              : 'Enter a Sleeper league ID to view analysis'}
+              ? 'Enter your Sleeper username to see all your leagues'
+              : 'Jump straight to a league with its ID'}
+          </p>
+          <p className="text-xs text-gray-500">
+            Free preview • No signup required
           </p>
         </div>
 
@@ -147,9 +151,33 @@ export default function LocalAnalysisPage() {
                   disabled={isLoading}
                 />
               </div>
-              <p className="mt-2 text-sm text-gray-500">
-                Enter the Sleeper league ID (found in the league URL)
-              </p>
+              <div className="mt-2 flex items-center justify-between">
+                <p className="text-sm text-gray-500">
+                  Found in your league URL
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowHelp(!showHelp)}
+                  className="text-xs text-primary-600 hover:text-primary-700 flex items-center gap-1"
+                >
+                  <HelpCircle className="w-3.5 h-3.5" />
+                  How do I find this?
+                </button>
+              </div>
+              
+              {showHelp && (
+                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+                  <p className="font-medium text-blue-900 mb-2">📍 Finding Your League ID:</p>
+                  <ol className="text-blue-800 space-y-1 ml-4 list-decimal">
+                    <li>Go to Sleeper.com and open your league</li>
+                    <li>Look at the URL in your browser</li>
+                    <li>Copy the long number after <code className="bg-blue-100 px-1 rounded text-xs">/leagues/</code></li>
+                  </ol>
+                  <p className="text-xs text-blue-600 mt-2">
+                    Example: sleeper.com/leagues/<span className="font-mono font-bold">1312497096116404224</span>
+                  </p>
+                </div>
+              )}
             </div>
 
             <button
