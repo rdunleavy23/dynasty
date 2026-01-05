@@ -19,23 +19,73 @@ interface PageProps {
 }
 
 async function getUserLeaguesData(username: string) {
+  // #region agent log
+  const logPath = '/Users/ryan/Desktop/dynasty-claude-league-intel-setup-qtTJi/.cursor/debug.log'
+  const logDebug = async (location: string, message: string, data: any) => {
+    try {
+      const logEntry = JSON.stringify({
+        location,
+        message,
+        data,
+        timestamp: Date.now(),
+        sessionId: 'debug-session',
+        runId: 'run1',
+        hypothesisId: 'A'
+      }) + '\n'
+      await fetch('http://127.0.0.1:7243/ingest/65e35794-301a-4f72-96d1-008e0ed53161', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: logEntry
+      }).catch(() => {})
+    } catch {}
+  }
+  // #endregion
+  
   try {
+    // #region agent log
+    await logDebug('app/local/user/[username]/page.tsx:21', 'getUserLeaguesData entry', { username, rawUsername: username })
+    // #endregion
+    
     // Decode the username from URL (in case it was encoded)
     const decodedUsername = decodeURIComponent(username).trim()
     
+    // #region agent log
+    await logDebug('app/local/user/[username]/page.tsx:25', 'decoded username', { decodedUsername })
+    // #endregion
+    
     // First, get user by username from Sleeper API
     const user = await getUserByUsername(decodedUsername)
+    
+    // #region agent log
+    await logDebug('app/local/user/[username]/page.tsx:28', 'after getUserByUsername', { userFound: !!user, userId: user?.user_id, username: user?.username })
+    // #endregion
+    
     if (!user) {
       console.error('[getUserLeaguesData] User not found for username:', decodedUsername)
+      // #region agent log
+      await logDebug('app/local/user/[username]/page.tsx:31', 'user not found, returning empty', { decodedUsername })
+      // #endregion
       return { user: null, sleeperLeagues: [], dbLeagues: [] }
     }
     
     console.log('[getUserLeaguesData] Found user:', user.user_id, user.username)
 
     // Get leagues from Sleeper API
+    // #region agent log
+    await logDebug('app/local/user/[username]/page.tsx:36', 'calling getUserLeagues', { userId: user.user_id })
+    // #endregion
+    
     const sleeperLeagues = await getUserLeagues(user.user_id)
+    
+    // #region agent log
+    await logDebug('app/local/user/[username]/page.tsx:38', 'after getUserLeagues', { leaguesCount: sleeperLeagues?.length || 0, leagues: sleeperLeagues?.slice(0, 2) })
+    // #endregion
 
     // Also check database for leagues where this user is a team owner
+    // #region agent log
+    await logDebug('app/local/user/[username]/page.tsx:40', 'querying database', { userId: user.user_id })
+    // #endregion
+    
     const dbLeagues = await prisma.league.findMany({
       where: {
         teams: {
@@ -56,17 +106,68 @@ async function getUserLeaguesData(username: string) {
       },
       orderBy: { season: 'desc' },
     })
+    
+    // #region agent log
+    await logDebug('app/local/user/[username]/page.tsx:58', 'after database query', { dbLeaguesCount: dbLeagues?.length || 0 })
+    await logDebug('app/local/user/[username]/page.tsx:60', 'returning data', { 
+      hasUser: !!user, 
+      sleeperLeaguesCount: sleeperLeagues?.length || 0, 
+      dbLeaguesCount: dbLeagues?.length || 0 
+    })
+    // #endregion
 
     return { user, sleeperLeagues, dbLeagues }
   } catch (error) {
+    // #region agent log
+    await logDebug('app/local/user/[username]/page.tsx:63', 'error caught', { 
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorName: error instanceof Error ? error.name : undefined,
+      errorStack: error instanceof Error ? error.stack : undefined
+    })
+    // #endregion
     console.error('Error fetching user leagues:', error)
     return { user: null, sleeperLeagues: [], dbLeagues: [] }
   }
 }
 
 export default async function LocalUserLeaguesPage({ params }: PageProps) {
+  // #region agent log
+  const logPath = '/Users/ryan/Desktop/dynasty-claude-league-intel-setup-qtTJi/.cursor/debug.log'
+  const logDebug = async (location: string, message: string, data: any) => {
+    try {
+      const logEntry = JSON.stringify({
+        location,
+        message,
+        data,
+        timestamp: Date.now(),
+        sessionId: 'debug-session',
+        runId: 'run1',
+        hypothesisId: 'B'
+      }) + '\n'
+      await fetch('http://127.0.0.1:7243/ingest/65e35794-301a-4f72-96d1-008e0ed53161', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: logEntry
+      }).catch(() => {})
+    } catch {}
+  }
+  // #endregion
+  
   const username = decodeURIComponent(params.username)
+  
+  // #region agent log
+  await logDebug('app/local/user/[username]/page.tsx:67', 'LocalUserLeaguesPage entry', { username, rawParams: params.username })
+  // #endregion
+  
   const { user, sleeperLeagues, dbLeagues } = await getUserLeaguesData(username)
+  
+  // #region agent log
+  await logDebug('app/local/user/[username]/page.tsx:70', 'after getUserLeaguesData', { 
+    hasUser: !!user, 
+    sleeperLeaguesCount: sleeperLeagues?.length || 0, 
+    dbLeaguesCount: dbLeagues?.length || 0 
+  })
+  // #endregion
 
   if (!user) {
     return (

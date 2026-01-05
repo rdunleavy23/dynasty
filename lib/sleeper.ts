@@ -146,9 +146,20 @@ export async function getUserByUsername(username: string): Promise<SleeperUser |
  * Get all leagues for a user
  */
 export async function getUserLeagues(userId: string, season?: string): Promise<SleeperLeague[]> {
-  const currentSeason = season || new Date().getFullYear().toString()
-  const url = `${SLEEPER_API_BASE}/user/${userId}/leagues/nfl/${currentSeason}`
-  return fetchWithRetry<SleeperLeague[]>(url)
+  try {
+    const currentSeason = season || new Date().getFullYear().toString()
+    const url = `${SLEEPER_API_BASE}/user/${userId}/leagues/nfl/${currentSeason}`
+    const leagues = await fetchWithRetry<SleeperLeague[]>(url)
+    console.log('[getUserLeagues] Fetched leagues:', { userId, season: currentSeason, count: leagues?.length || 0 })
+    return leagues || []
+  } catch (error) {
+    console.error('[getUserLeagues] Error fetching leagues:', error, { userId, season })
+    // Return empty array instead of throwing - user might not have leagues this season
+    if (error instanceof Error && (error.message.includes('404') || error.message.includes('Not Found'))) {
+      return []
+    }
+    throw error
+  }
 }
 
 /**
